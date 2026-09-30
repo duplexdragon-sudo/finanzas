@@ -204,6 +204,15 @@ body.privado .amt{filter:blur(8px);user-select:none}
 .toast button{margin-left:12px;border:0;background:none;color:var(--accent);font-weight:700;cursor:pointer;padding:0}
 .toast{display:flex;align-items:center;justify-content:space-between;gap:10px;width:min(420px,calc(100% - 32px));text-align:left!important;font-size:.9rem}
 .toast[hidden]{display:none!important}
+.kv3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px}
+.kv3 div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.kv3 span{font-size:.72rem;color:var(--muted)} .kv3 b{font-size:.95rem;font-weight:600;overflow-wrap:anywhere}
+.invcard{cursor:pointer}
+.xbtn{width:34px;height:34px;border-radius:50%;border:0;background:var(--soft);display:grid;place-items:center;cursor:pointer;flex:none;color:var(--muted)}
+.xbtn.sure{background:var(--neg);color:#fff;width:auto;border-radius:10px;padding:0 10px;font-size:.78rem;font-weight:600}
+.lrow{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.lrow:first-child{border-top:0}
+.lrow .s{font-size:.76rem;color:var(--muted)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(100px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:11px 16px;border-radius:14px;font-weight:600;z-index:60;max-width:calc(100% - 32px);text-align:center}
 @media (max-width:380px){.tiles{grid-template-columns:repeat(2,1fr)}.donutwrap{grid-template-columns:110px 1fr}.donutwrap svg{width:110px;height:110px}}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .24s ease-out}@keyframes up{from{transform:translateY(40px);opacity:.5}}
@@ -358,7 +367,14 @@ body.privado .amt{filter:blur(8px);user-select:none}
   <div class="scrhead"><button class="iconbtn" data-back aria-label="Volver"><svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><h1>Inversiones</h1><button class="btn sm primary" id="newInv">+ Nueva</button></div>
   <section class="card" id="portfolio"></section>
   <section class="card"><h2>Tus inversiones</h2><div id="invList"></div></section>
-  <p class="small muted" style="margin:0 4px">El valor actual lo actualizas tú cuando revises tu app del banco o plataforma. Los aportes salen de tu saldo disponible y los retiros vuelven a él.</p>
+  <section class="card" id="portChart"></section>
+  <p class="small muted" style="margin:0 4px">Toca una inversión para ver su plazo, rendimientos y movimientos. El valor actual lo actualizas tú cuando revises tu app del banco o plataforma. Los aportes salen de tu saldo disponible y los retiros vuelven a él.</p>
+</div></div>
+
+<!-- PANTALLA: DETALLE DE INVERSIÓN -->
+<div class="screen" id="s-invd" hidden><div class="inner">
+  <div class="scrhead"><button class="iconbtn" data-screen="s-inv" aria-label="Volver a inversiones"><svg class="ico" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><h1 id="idTitle" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Inversión</h1><button class="btn sm" id="idEdit">Editar</button></div>
+  <div id="invDetail" style="display:flex;flex-direction:column;gap:14px"></div>
 </div></div>
 
 <!-- PANTALLA: METAS -->
@@ -470,6 +486,44 @@ const monthMovs=(y,mo)=>{const p=y+"-"+pad(mo)+"-";return MOV.filter(m=>m.fecha.
 const invById=id=>cfg.inversiones.find(v=>v.id===id);
 const invested=v=>MOV.reduce((a,m)=>m.inversionId===v.id?a+(m.tipo==="Inversión"?m.monto:-m.monto):a,0);
 const invEffect=m=>m&&m.inversionId?(m.tipo==="Inversión"?m.monto:-m.monto):0;
+const daysBetween=(a,b)=>Math.round((parseD(b)-parseD(a))/864e5);
+const pctS=x=>(x>=0?"+":"")+(x*100).toFixed(1).replace(".",",")+" %";
+const durS=d=>d<60?d+" días":d<730?Math.round(d/30.4)+" meses":(d/365).toFixed(1).replace(".",",")+" años";
+const invMovs=v=>MOV.filter(m=>m.inversionId===v.id).sort((a,b)=>a.fecha.localeCompare(b.fecha)||(a.creado||0)-(b.creado||0));
+const invStart=v=>v.inicio||(invMovs(v)[0]||{}).fecha||v.creada||today();
+function invStats(v){
+  const iv=invested(v),val=v.valor||0,g=val-iv,p=iv?g/iv:0,start=invStart(v),dias=Math.max(0,daysBetween(start,today()));
+  const anual=v.actualizado&&iv>0&&val>0&&dias>=30?Math.pow(val/iv,365/dias)-1:null;
+  let plazo=null,estimado=null,proyectado=null;
+  if(v.vence){const tot=Math.max(1,daysBetween(start,v.vence)),rest=daysBetween(today(),v.vence);plazo={tot,rest,prog:Math.min(1,Math.max(0,1-rest/tot))}}
+  if(v.tasa){const t=v.tasa/100;
+    estimado=Math.max(0,invMovs(v).reduce((a,m)=>{const f=Math.pow(1+t,Math.max(0,daysBetween(m.fecha,today()))/365);return a+(m.tipo==="Inversión"?1:-1)*m.monto*f},0));
+    if(v.vence&&plazo.rest>0)proyectado=(v.actualizado?val:estimado)*Math.pow(1+t,plazo.rest/365)}
+  return {iv,val,g,p,start,dias,anual,plazo,estimado,proyectado};
+}
+function valueAt(v,d){let x=0;v.historial.forEach(h=>{if(h.fecha<=d)x=h.valor});return x}
+function investedAt(v,d){return invMovs(v).reduce((a,m)=>m.fecha<=d?a+(m.tipo==="Inversión"?m.monto:-m.monto):a,0)}
+function timeChart(series){
+  const all=series.flatMap(s=>s.pts);if(all.length<2)return "";
+  const ts=all.map(p=>parseD(p[0]).getTime()),vs=all.map(p=>p[1]);
+  let x0=Math.min(...ts),x1=Math.max(...ts);if(x1===x0)x0-=864e5*7;
+  let y0=Math.min(...vs),y1=Math.max(...vs);if(y1===y0){y1=y0*1.1+1;y0=y0*.9}const pd=(y1-y0)*.15;y0=Math.max(0,y0-pd);y1+=pd;
+  const W=320,H=150,T=12,B=22,X=t=>2+(t-x0)/(x1-x0)*(W-4),Y=v=>T+(1-(v-y0)/(y1-y0))*(H-T-B);
+  let g=`<line x1="0" y1="${H-B}" x2="${W}" y2="${H-B}" stroke="var(--line)"/><line x1="0" y1="${T}" x2="${W}" y2="${T}" stroke="var(--line)" stroke-dasharray="2 4"/>`;
+  series.forEach(s=>{if(!s.pts.length)return;const P=s.pts.map(p=>[+X(parseD(p[0]).getTime()).toFixed(1),+Y(p[1]).toFixed(1)]);
+    let d=`M${P[0][0]},${P[0][1]}`;for(let i=1;i<P.length;i++)d+=s.step?` H${P[i][0]} V${P[i][1]}`:` L${P[i][0]},${P[i][1]}`;
+    g+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.2" ${s.dash?'stroke-dasharray="5 4"':""} stroke-linejoin="round" stroke-linecap="round"/>`;
+    const q=P[P.length-1];g+=`<circle cx="${q[0]}" cy="${q[1]}" r="3.5" fill="${s.color}"/>`});
+  g+=`<text x="2" y="${H-6}" font-size="9.5" fill="var(--muted)">${fShort(dstr(new Date(x0)))}</text><text x="${W-2}" y="${H-6}" font-size="9.5" fill="var(--muted)" text-anchor="end">${fShort(dstr(new Date(x1)))}</text><text x="4" y="${T-3}" font-size="9.5" fill="var(--muted)" class="amt">${fmtK(y1)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Evolución del valor y lo invertido">${g}</svg>`;
+}
+const chartLegend=`<div class="row small muted" style="justify-content:flex-start;gap:14px"><span style="display:flex;gap:6px;align-items:center"><span class="dot" style="background:var(--accent)"></span>Valor</span><span style="display:flex;gap:6px;align-items:center"><span style="width:14px;border-top:2px dashed var(--muted)"></span>Invertido</span></div>`;
+function invSeries(list){
+  const dates=new Set([today()]);list.forEach(v=>{v.historial.forEach(h=>dates.add(h.fecha));invMovs(v).forEach(m=>dates.add(m.fecha))});
+  const ds=[...dates].sort();
+  return [{pts:ds.map(d=>[d,list.reduce((a,v)=>a+investedAt(v,d),0)]),color:"var(--muted)",dash:true,step:true},
+          {pts:ds.map(d=>[d,list.reduce((a,v)=>a+(d===today()?(v.valor||0):valueAt(v,d)),0)]),color:"var(--accent)"}];
+}
 function invAdj(id,delta,fecha){const v=invById(id);if(!v||!delta)return;v.valor=Math.max(0,(v.valor||0)+delta);v.historial.push({fecha:fecha||today(),valor:v.valor})}
 const saved=g=>g.aportes.reduce((a,x)=>a+x.monto,0);
 
@@ -494,7 +548,7 @@ function renderAll(){
   document.body.classList.toggle("privado",privado);
   $("eye").innerHTML=ico(privado?"eyeoff":"eye");
   renderInicio();renderStats();renderCal();renderConfig();
-  if(openScreenId==="s-mov")renderMov();if(openScreenId==="s-inv")renderInv();if(openScreenId==="s-metas")renderGoals();
+  if(openScreenId==="s-mov")renderMov();if(openScreenId==="s-inv")renderInv();if(openScreenId==="s-invd")renderInvDetail();if(openScreenId==="s-metas")renderGoals();
 }
 function movRow(m){
   const col=TI[m.tipo]?.col||"var(--muted)",title=m.descripcion||m.categoria,sub=m.descripcion?`${m.tipo} · ${m.categoria}`:m.tipo;
@@ -624,23 +678,58 @@ function renderMov(){
   $("movList").innerHTML=h||`<div class="empty">No hay movimientos ${movFilter==="Todos"?"":"de este tipo "}en ${MESES[movM.m-1]}.</div>`;
 }
 
+let invOpen=null,askDel=null;
 function renderInv(){
-  const L=cfg.inversiones,val=L.reduce((a,v)=>a+(v.valor||0),0),inv=L.reduce((a,v)=>a+invested(v),0),gan=val-inv,gp=inv?gan/inv*100:0;
+  const L=cfg.inversiones,val=L.reduce((a,v)=>a+(v.valor||0),0),inv=L.reduce((a,v)=>a+invested(v),0),gan=val-inv,gp=inv?gan/inv:0;
   const palette=["var(--accent)","var(--c-in)","var(--c-ga)","#E0A020","var(--neg)","var(--c-inv)","#3FA9F5"];
+  const st=L.map(invStats),wA=st.filter(x=>x.anual!==null),anualP=wA.length?wA.reduce((a,x)=>a+x.anual*x.iv,0)/wA.reduce((a,x)=>a+x.iv,0):null;
+  const venc=L.map((v,i)=>({v,p:st[i].plazo})).filter(x=>x.p&&x.p.rest>=0&&x.p.rest<=60).sort((a,b)=>a.p.rest-b.p.rest);
   $("portfolio").innerHTML=`<div class="muted">Valor de tu portafolio</div><div class="amt" style="font-size:2rem;font-weight:700;letter-spacing:-.02em">${fmt(val)}</div>
-    <div class="kv"><div><span>Invertido</span><b class="amt">${fmt(inv)}</b></div><div><span>Ganancia</span><b class="amt ${gan>=0?"pos":"neg"}">${gan>=0?"+":""}${fmt(gan)}</b></div><div><span>Rentabilidad</span><b class="${gan>=0?"pos":"neg"}">${inv?(gp>=0?"+":"")+gp.toFixed(1).replace(".",",")+" %":"—"}</b></div></div>
+    <div class="kv3"><div><span>Invertido</span><b class="amt">${fmt(inv)}</b></div><div><span>Ganancia</span><b class="amt ${gan>=0?"pos":"neg"}">${gan>=0?"+":""}${fmt(gan)}</b></div><div><span>Rentabilidad</span><b class="${gan>=0?"pos":"neg"}">${inv?pctS(gp):"—"}</b></div>
+    <div><span>Rent. anual prom.</span><b class="${anualP===null?"":anualP>=0?"pos":"neg"}">${anualP===null?"—":pctS(anualP)}</b></div><div><span>Inversiones</span><b>${L.length}</b></div><div><span>Próx. vencimiento</span><b>${venc[0]?(venc[0].p.rest?"en "+venc[0].p.rest+" d":"hoy"):"—"}</b></div></div>
     ${val?`<div class="stack">${L.filter(v=>v.valor>0).map((v,i)=>`<div style="flex:${v.valor};background:${palette[i%palette.length]}"></div>`).join("")}</div>
-    <div class="chips small">${L.filter(v=>v.valor>0).map((v,i)=>`<span style="display:flex;gap:6px;align-items:center"><span class="dot" style="background:${palette[i%palette.length]}"></span>${esc(v.nombre)} ${Math.round(v.valor/val*100)}%</span>`).join("")}</div>`:""}`;
-  $("invList").innerHTML=L.length?L.map((v,i)=>{const iv=invested(v),g=(v.valor||0)-iv,p=iv?g/iv*100:0,hs=v.historial.slice(-20).map(x=>x.valor);
-    return `<div class="inv"><div class="row"><div style="min-width:0"><b>${esc(v.nombre)}</b><div class="small muted">${esc([v.tipo,v.plataforma].filter(Boolean).join(" · "))}</div></div>
-      <span class="pill ${g>=0?"pos":"neg"}">${iv?(g>=0?"+":"")+p.toFixed(1).replace(".",",")+"%":"—"}</span></div>
-      ${hs.length>1?`<svg viewBox="0 0 200 40" preserveAspectRatio="none" style="width:100%;height:40px">${sparkSVG(hs,200,40,"iv"+i)}</svg>`:""}
-      <div class="kv"><div><span>Valor actual</span><b class="amt">${fmt(v.valor||0)}</b></div><div><span>Invertido</span><b class="amt">${fmt(iv)}</b></div><div><span>Ganancia</span><b class="amt ${g>=0?"pos":"neg"}">${g>=0?"+":""}${fmt(g)}</b></div></div>
-      <div class="small muted">${v.actualizado?"Valor actualizado el "+fShort(v.actualizado):"Aún no has actualizado el valor"}</div>
-      <div class="btns"><button type="button" class="btn sm primary" data-iaporte="${v.id}">+ Aportar</button><button type="button" class="btn sm" data-ivalor="${v.id}">Actualizar valor</button><button type="button" class="btn sm" data-iretiro="${v.id}">Retirar</button><button type="button" class="btn sm" data-iedit="${v.id}">Editar</button></div></div>`}).join("")
+    <div class="chips small">${L.filter(v=>v.valor>0).map((v,i)=>`<span style="display:flex;gap:6px;align-items:center"><span class="dot" style="background:${palette[i%palette.length]}"></span>${esc(v.nombre)} ${Math.round(v.valor/val*100)}%</span>`).join("")}</div>`:""}
+    ${venc.length?`<div class="small" style="display:flex;flex-direction:column;gap:4px">${venc.map(x=>`<span class="hint warn">${esc(x.v.nombre)} vence ${x.p.rest?"en "+x.p.rest+" días":"hoy"} (${fShort(x.v.vence)})</span>`).join("")}</div>`:""}`;
+  const ch=timeChart(invSeries(L));
+  $("portChart").hidden=!ch;$("portChart").innerHTML=`<h2>Evolución del portafolio</h2>${chartLegend}${ch}`;
+  $("invList").innerHTML=L.length?L.map((v,i)=>{const x=st[i];
+    return `<div class="inv"><div class="row invcard" data-iopen="${v.id}"><div style="min-width:0"><b>${esc(v.nombre)}</b><div class="small muted">${esc([v.tipo,v.plataforma,v.tasa?String(v.tasa).replace(".",",")+"% E.A.":""].filter(Boolean).join(" · "))}</div></div>
+      <span class="pill ${x.g>=0?"pos":"neg"}">${x.iv?pctS(x.p):"—"}</span></div>
+      <div class="kv3 invcard" data-iopen="${v.id}"><div><span>Valor actual</span><b class="amt">${fmt(x.val)}</b></div><div><span>Invertido</span><b class="amt">${fmt(x.iv)}</b></div><div><span>${x.plazo?"Plazo":"Tiempo"}</span><b>${x.plazo?(x.plazo.rest>0?"Faltan "+x.plazo.rest+" d":"Vencida"):durS(x.dias)}</b></div></div>
+      ${x.plazo?`<div class="track invcard" data-iopen="${v.id}" style="height:6px"><div class="fill" style="width:${x.plazo.prog*100}%"></div></div>`:""}
+      <div class="btns"><button type="button" class="btn sm primary" data-iaporte="${v.id}">+ Aportar</button><button type="button" class="btn sm" data-ivalor="${v.id}">Actualizar valor</button><button type="button" class="btn sm" data-iopen="${v.id}">Ver detalle</button><button type="button" class="btn sm" data-idel="${v.id}" style="color:var(--neg)">Eliminar</button></div></div>`}).join("")
     :`<div class="empty">Agrega tu primera inversión: un CDT, un fondo, acciones o cripto. Toca <b>+ Nueva</b>.</div>`;
 }
-
+function renderInvDetail(){
+  const v=invById(invOpen);if(!v){closeScreen();openScreen("s-inv");return}
+  const x=invStats(v),ms=invMovs(v);
+  $("idTitle").textContent=v.nombre;
+  const trash='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>';
+  let plazoHTML;
+  if(x.plazo){const r=x.plazo.rest;
+    plazoHTML=`<div class="row small"><span>Inicio: <b>${fShort(x.start)}</b></span><span>Vence: <b>${fShort(v.vence)}</b></span></div>
+      <div class="track" style="height:10px"><div class="fill" style="width:${x.plazo.prog*100}%"></div></div>
+      <div class="${r<0?"hint over":r<=30?"hint warn":"hint"}" style="font-size:.85rem">${r>0?`Faltan <b>${r} días</b> (${durS(r)}) · llevas ${Math.round(x.plazo.prog*100)}% del plazo`:r===0?"Vence hoy":`Venció hace ${-r} días. Actualiza el valor o retira la plata.`}</div>
+      ${x.proyectado?`<div class="kv3"><div><span>Valor al vencimiento</span><b class="amt">${fmt(x.proyectado)}</b></div><div><span>Ganancia esperada</span><b class="amt pos">+${fmt(x.proyectado-x.iv)}</b></div><div><span>Con tasa</span><b>${String(v.tasa).replace(".",",")}% E.A.</b></div></div>`:""}`}
+  else plazoHTML=`<div class="small muted">Invertido desde el <b>${fShort(x.start)}</b> (${durS(x.dias)}). Sin fecha de vencimiento: si es un CDT o tiene plazo, agrégalo en <b>Editar</b>.</div>`;
+  const est=x.estimado!==null&&Math.abs(x.estimado-x.val)>=1?`<div class="row" style="background:var(--soft);border-radius:12px;padding:10px 12px"><span class="small">Según la tasa del ${String(v.tasa).replace(".",",")}% E.A., hoy debería valer <b class="amt">${fmt(x.estimado)}</b></span><button type="button" class="btn sm primary" data-iusar="${v.id}">Usar</button></div>`:"";
+  const ch=timeChart(invSeries([v]));
+  const hist=[...v.historial].map((h,i)=>({...h,i})).reverse();
+  $("invDetail").innerHTML=`
+   <section class="card"><div class="small muted">${esc([v.tipo,v.plataforma].filter(Boolean).join(" · "))}</div>
+     <div class="row"><div class="amt" style="font-size:2rem;font-weight:700;letter-spacing:-.02em">${fmt(x.val)}</div><span class="pill ${x.g>=0?"pos":"neg"}">${x.iv?pctS(x.p):"—"}</span></div>
+     <div class="small muted">${v.actualizado?"Valor actualizado el "+fShort(v.actualizado):"Aún no has actualizado el valor"}</div>${est}
+     <div class="btns"><button type="button" class="btn sm primary" data-iaporte="${v.id}">+ Aportar</button><button type="button" class="btn sm" data-ivalor="${v.id}">Actualizar valor</button><button type="button" class="btn sm" data-iretiro="${v.id}">Retirar</button></div></section>
+   <section class="card"><h2>Rendimiento</h2><div class="kv3">
+     <div><span>Invertido</span><b class="amt">${fmt(x.iv)}</b></div><div><span>Ganancia</span><b class="amt ${x.g>=0?"pos":"neg"}">${x.g>=0?"+":""}${fmt(x.g)}</b></div><div><span>Rentabilidad total</span><b class="${x.g>=0?"pos":"neg"}">${x.iv?pctS(x.p):"—"}</b></div>
+     <div><span>Rentabilidad anual</span><b class="${x.anual===null?"":x.anual>=0?"pos":"neg"}">${x.anual===null?"—":pctS(x.anual)}</b></div><div><span>Tasa pactada</span><b>${v.tasa?String(v.tasa).replace(".",",")+"% E.A.":"—"}</b></div><div><span>Tiempo invertido</span><b>${durS(x.dias)}</b></div></div>
+     ${x.anual===null&&x.iv?`<div class="small muted">La rentabilidad anual aparece cuando lleves al menos 30 días y hayas actualizado el valor.</div>`:""}</section>
+   <section class="card"><h2>Plazo</h2>${plazoHTML}</section>
+   ${ch?`<section class="card"><h2>Evolución</h2>${chartLegend}${ch}</section>`:""}
+   <section class="card"><h2>Aportes y retiros</h2><div>${ms.length?[...ms].reverse().map(m=>`<div class="lrow"><div style="min-width:0"><div>${m.tipo==="Inversión"?"Aporte":"Retiro"}${m.descripcion&&m.descripcion!==v.nombre?" · "+esc(m.descripcion):""}</div><div class="s">${fShort(m.fecha)}</div></div><b class="amt ${m.tipo==="Inversión"?"":"pos"}">${m.tipo==="Inversión"?"+ ":"- "}${fmt(m.monto)}</b><button type="button" class="xbtn${askDel==="m"+m.id?" sure":""}" data-mdel="${m.id}" aria-label="Eliminar">${askDel==="m"+m.id?"Eliminar":trash}</button></div>`).join(""):`<div class="empty">Sin aportes todavía.</div>`}</div></section>
+   <section class="card"><h2>Historial de valores</h2><div>${hist.length?hist.map(h=>`<div class="lrow"><div class="s">${fShort(h.fecha)}</div><b class="amt">${fmt(h.valor)}</b><button type="button" class="xbtn${askDel==="h"+h.i?" sure":""}" data-hdel="${h.i}" aria-label="Eliminar registro">${askDel==="h"+h.i?"Eliminar":trash}</button></div>`).join(""):`<div class="empty">Sin registros de valor.</div>`}</div></section>
+   <button type="button" class="btn danger" data-idel="${v.id}">Eliminar esta inversión</button>`;
+}
 let askDelGoal=null;
 function renderGoals(){
   if(!cfg.metas.length){$("goals").innerHTML=`<div class="empty">Crea una meta: un viaje, un computador o un fondo de emergencia. Te digo cuánto apartar cada mes.</div>`;return}
@@ -663,7 +752,7 @@ function go(t){tab=t;["inicio","stats","cal","config"].forEach(v=>$("v-"+v).hidd
 function openScreen(id){closeScreen();openScreenId=id;$(id).hidden=false;$(id).scrollTop=0;renderAll()}
 function closeScreen(){if(openScreenId)$(openScreenId).hidden=true;openScreenId=null}
 document.addEventListener("click",e=>{
-  const b=e.target.closest("button,[data-day]");if(!b)return;const d=b.dataset;
+  const b=e.target.closest("button,[data-day],[data-iopen]");if(!b)return;const d=b.dataset;
   if(d.tab)go(d.tab);
   else if(d.screen)openScreen(d.screen);
   else if("back" in d)closeScreen();
@@ -681,6 +770,12 @@ document.addEventListener("click",e=>{
   else if(d.ivalor)valorSheet(invById(d.ivalor));
   else if(d.iretiro)retiroSheet(invById(d.iretiro));
   else if(d.iedit)invSheet(invById(d.iedit));
+  else if(d.iopen){invOpen=d.iopen;askDel=null;openScreen("s-invd")}
+  else if(d.idel)invDeleteSheet(invById(d.idel));
+  else if(d.iusar){const v=invById(d.iusar),x=invStats(v);v.valor=Math.round(x.estimado);v.actualizado=today();v.historial.push({fecha:today(),valor:v.valor});persist();toast("Valor actualizado según la tasa")}
+  else if(d.mdel){if(askDel==="m"+d.mdel){const old=DB[d.mdel];if(old){invAdj(old.inversionId,-invEffect(old));delete DB[d.mdel]}askDel=null;persist();toast("Movimiento eliminado")}else{askDel="m"+d.mdel;renderInvDetail()}}
+  else if(d.hdel){const v=invById(invOpen),i=+d.hdel;if(askDel==="h"+i){const wasLast=i===v.historial.length-1;v.historial.splice(i,1);
+      if(wasLast){const l=v.historial[v.historial.length-1];v.valor=l?l.valor:Math.max(0,invested(v));}askDel=null;persist();toast("Registro eliminado")}else{askDel="h"+i;renderInvDetail()}}
   else if(d.gap)aporteSheet(cfg.metas.find(g=>g.id===d.gap),false);
   else if(d.gret){const g=cfg.metas.find(x=>x.id===d.gret);if(saved(g)<=0){toast("Esta meta aún no tiene ahorro");return}aporteSheet(g,true)}
   else if(d.gedit)goalSheet(cfg.metas.find(g=>g.id===d.gedit));
@@ -697,6 +792,7 @@ $("calAdd").onclick=()=>movSheet({tipo:"Gasto",fecha:calSel});
 $("editBudget").onclick=$("cfgBudget").onclick=()=>budgetSheet();
 $("cfgCats").onclick=()=>catsSheet("Gasto");
 $("newInv").onclick=()=>invSheet();
+$("idEdit").onclick=()=>invSheet(invById(invOpen));
 $("newGoal").onclick=()=>goalSheet();
 $("segModo").onclick=e=>{const b=e.target.closest("button");if(b){cfg.tema.modo=b.dataset.v;persist()}};
 $("segFondo").onclick=e=>{const b=e.target.closest("button");if(b){cfg.tema.fondo=b.dataset.v;persist()}};
@@ -788,29 +884,57 @@ function catsSheet(t){
 }
 /* ---- inversiones ---- */
 function invSheet(v,cb){
-  const edit=!!v;v=v||{nombre:"",tipo:"CDT",plataforma:""};let tipo=v.tipo;
+  const edit=!!v;v=v||{nombre:"",tipo:"CDT",plataforma:"",inicio:today(),vence:"",tasa:""};let tipo=v.tipo;
+  const ini0=edit?invStart(v):(v.inicio||today());
   openSheet(head(edit?"Editar inversión":"Nueva inversión")+
    `<div class="field"><label for="iN">Nombre</label><input class="inp" id="iN" placeholder="Ej: CDT Banco de Bogotá, Acciones Ecopetrol" value="${esc(v.nombre)}"></div>
     <div class="field"><span class="lbl">Tipo</span><div class="chips" id="iT">${chipsHTML(INV_TIPOS,tipo,"it")}</div></div>
     <div class="field"><label for="iP">Plataforma o entidad (opcional)</label><input class="inp" id="iP" placeholder="Ej: tyba, Trii, Banco de Bogotá" value="${esc(v.plataforma)}"></div>
-    ${edit?"":`<div class="field"><label for="iV">¿Ya tienes plata ahí? Valor actual (opcional)</label><input class="inp money" id="iV" inputmode="numeric" placeholder="$ 0"><span class="small muted">Si lo llenas, se registra como tu primer aporte de hoy.</span></div>`}
+    <div class="field"><label for="iI">Fecha de inicio</label><input class="inp" type="date" id="iI" value="${esc(ini0)}"></div>
+    <div class="field"><span class="lbl">Plazo (opcional)</span><div class="chips" id="iPl">${[3,6,12,18,24,36].map(n=>`<button type="button" class="chip" data-pl="${n}">${n} meses</button>`).join("")}<button type="button" class="chip" data-pl="0">Sin plazo</button></div>
+      <label for="iV2" class="small muted">Fecha de vencimiento</label><input class="inp" type="date" id="iV2" value="${esc(v.vence||"")}"></div>
+    <div class="field"><label for="iR">Tasa pactada o esperada (% efectivo anual, opcional)</label><input class="inp" id="iR" inputmode="decimal" placeholder="Ej: 11,5" value="${v.tasa?String(v.tasa).replace(".",","):""}"><span class="small muted">Con la tasa te calculo cuánto debería valer hoy y cuánto tendrás al vencimiento.</span></div>
+    ${edit?"":`<div class="field"><label for="iV">¿Cuánto invertiste? (opcional)</label><input class="inp money" id="iV" inputmode="numeric" placeholder="$ 0"><span class="small muted">Se registra como tu primer aporte en la fecha de inicio.</span></div>`}
     <button class="btn primary" type="submit">${edit?"Guardar cambios":"Crear inversión"}</button>
     ${edit?`<button class="btn danger" type="button" id="iDel">Eliminar inversión</button>`:""}`,
   ()=>{const nombre=$("iN").value.trim();if(!nombre){toast("Escribe el nombre");return}
-    if(edit){Object.assign(v,{nombre,tipo,plataforma:$("iP").value.trim()});MOV.filter(m=>m.inversionId===v.id&&m.tipo==="Inversión").forEach(m=>DB[m.id].categoria=nombre);closeSheet();persist();toast("Inversión actualizada");return}
-    const nv={id:"i"+uid(),nombre,tipo,plataforma:$("iP").value.trim(),valor:0,historial:[],creada:today()};cfg.inversiones.push(nv);
+    const inicio=$("iI").value||today(),vence=$("iV2").value||"",tasa=parseFloat(($("iR").value||"").replace(",","."))||0;
+    if(vence&&vence<=inicio){toast("El vencimiento debe ser después de la fecha de inicio");return}
+    const extra={nombre,tipo,plataforma:$("iP").value.trim(),inicio,vence,tasa};
+    if(edit){Object.assign(v,extra);MOV.filter(m=>m.inversionId===v.id&&m.tipo==="Inversión").forEach(m=>DB[m.id].categoria=nombre);closeSheet();persist();toast("Inversión actualizada");return}
+    const nv={id:"i"+uid(),...extra,valor:0,historial:[],creada:today()};cfg.inversiones.push(nv);
     const ini=money($("iV").value);
-    if(ini){DB["m"+uid()]={fecha:today(),anio:N.getFullYear(),mes:N.getMonth()+1,tipo:"Inversión",categoria:nombre,monto:ini,descripcion:"Aporte inicial",metodo:"Transferencia",origen:"app",creado:Date.now(),inversionId:nv.id};invAdj(nv.id,ini)}
+    if(ini){DB["m"+uid()]={fecha:inicio,anio:+inicio.slice(0,4),mes:+inicio.slice(5,7),tipo:"Inversión",categoria:nombre,monto:ini,descripcion:"Aporte inicial",metodo:"Transferencia",origen:"app",creado:Date.now(),inversionId:nv.id};invAdj(nv.id,ini,inicio)}
     if(cb){persist();cb(nv)}else{closeSheet();persist();toast("Inversión creada")}},
   f=>{$("iT").onclick=e=>{const b=e.target.closest("[data-it]");if(!b)return;tipo=b.dataset.it;$("iT").querySelectorAll("[data-it]").forEach(x=>x.setAttribute("aria-pressed",x===b))};
-    const del=$("iDel");if(del)del.onclick=()=>{if(del.dataset.sure){cfg.inversiones=cfg.inversiones.filter(x=>x.id!==v.id);closeSheet();persist();toast("Inversión eliminada. Sus movimientos quedan en el historial.")}else{del.dataset.sure=1;del.textContent="¿Seguro? Toca otra vez"}};
+    $("iPl").onclick=e=>{const b=e.target.closest("[data-pl]");if(!b)return;const n=+b.dataset.pl;
+      if(!n){$("iV2").value="";}else{const d=parseD($("iI").value||today());d.setMonth(d.getMonth()+n);$("iV2").value=dstr(d)}
+      $("iPl").querySelectorAll("[data-pl]").forEach(x=>x.setAttribute("aria-pressed",x===b))};
+    const del=$("iDel");if(del)del.onclick=()=>invDeleteSheet(v);
     if(!edit)setTimeout(()=>$("iN")?.focus(),80)});
+}
+function invDeleteSheet(v){
+  if(!v)return;const ms=invMovs(v);
+  openSheet(head("Eliminar "+esc(v.nombre))+
+   `<p class="small muted" style="margin:0">${ms.length?`Esta inversión tiene <b>${ms.length} ${ms.length===1?"movimiento":"movimientos"}</b> (aportes o retiros) por ${fmt(invested(v))} invertidos.`:"Esta inversión no tiene movimientos."}</p>
+    ${ms.length?`<button type="button" class="btn danger" id="dAll">Borrar la inversión y sus movimientos</button><span class="small muted">Úsalo si la creaste por error: tu saldo vuelve a como estaba antes.</span>
+    <button type="button" class="btn" id="dOnly">Borrar solo la inversión</button><span class="small muted">Los aportes quedan en tu historial como plata que salió.</span>`
+    :`<button type="button" class="btn danger" id="dAll">Borrar inversión</button>`}
+    <button type="button" class="btn" data-close>Cancelar</button>`,()=>{},
+  ()=>{const done=all=>{if(all)ms.forEach(m=>delete DB[m.id]);cfg.inversiones=cfg.inversiones.filter(x=>x.id!==v.id);cfg.rapidos=cfg.rapidos.filter(r=>r.inversionId!==v.id);
+      closeSheet();if(openScreenId==="s-invd")openScreen("s-inv");persist();toast("Inversión eliminada")};
+    $("dAll").onclick=()=>done(true);const o=$("dOnly");if(o)o.onclick=()=>done(false)});
 }
 function valorSheet(v){
   openSheet(head("Actualizar valor")+`<p class="small muted" style="margin:0">¿Cuánto vale hoy <b>${esc(v.nombre)}</b>? Míralo en tu app o extracto. Invertido: ${fmt(invested(v))}.</p>
     <div class="field"><label for="vV">Valor actual (COP)</label><input class="amount money" id="vV" inputmode="numeric" value="${moneyVal(v.valor)}"></div>
+    <div class="field"><label for="vP">…o escribe la rentabilidad que te muestra tu app (%)</label><input class="inp" id="vP" inputmode="decimal" placeholder="Ej: 5,2  o  -1,8" value="${invested(v)?((v.valor||0)/invested(v)*100-100).toFixed(2).replace(".",","):""}"><span class="small muted">Rentabilidad total sobre lo invertido (${fmt(invested(v))}). Al escribirla calculo el valor.</span></div>
     <button class="btn primary" type="submit">Guardar valor</button>`,
-  ()=>{const x=money($("vV").value);v.valor=x;v.actualizado=today();v.historial.push({fecha:today(),valor:x});closeSheet();persist();toast("Valor actualizado")},()=>setTimeout(()=>$("vV")?.select(),80));
+  ()=>{const x=money($("vV").value);v.valor=x;v.actualizado=today();v.historial.push({fecha:today(),valor:x});closeSheet();persist();toast("Valor actualizado")},
+  ()=>{const iv=invested(v);
+    $("vP").addEventListener("input",()=>{const p=parseFloat($("vP").value.replace(",","."));if(isNaN(p)||!iv)return;$("vV").value=Math.max(0,Math.round(iv*(1+p/100))).toLocaleString("es-CO")});
+    $("vV").addEventListener("input",()=>{const x=money($("vV").value);if(iv)$("vP").value=(x/iv*100-100).toFixed(2).replace(".",",")});
+    setTimeout(()=>$("vV")?.select(),80)});
 }
 function retiroSheet(v){
   openSheet(head("Retirar de "+esc(v.nombre))+`<p class="small muted" style="margin:0">Vale hoy ${fmt(v.valor||0)}. Lo que retires vuelve a tu saldo disponible como ingreso.</p>
