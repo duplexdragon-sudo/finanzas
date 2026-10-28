@@ -308,6 +308,18 @@ td.r,th.r{text-align:right}
       <p class="muted small" id="priceTxt">Calculando…</p>
       <div class="cw"><canvas id="cPrice" height="200"></canvas></div>
     </section>
+
+    <section class="card">
+      <div class="row"><h2>¿Cuánto invertir en publicidad?</h2><span class="pill" id="budPill">Calculando…</span></div>
+      <p class="muted small">El simulador repite tu campaña con 9 presupuestos diarios fijos (sin escalar ni apagar) para encontrar con cuál ganas más y cuánto arriesgas.</p>
+      <div class="tiles" id="budTiles"></div>
+      <div class="cw"><canvas id="cBud" height="210"></canvas></div>
+      <p class="muted small">Línea: utilidad típica del periodo simulado según el presupuesto diario. Franja: entre el escenario pesimista y el optimista.</p>
+      <div class="tw"><table id="budTable"></table></div>
+      <h3>Reglas para tu campaña</h3>
+      <ul class="diag" id="budRules"></ul>
+      <div class="btns"><button class="btn sm" id="budUse" hidden></button></div>
+    </section>
   </div>
 
   <section class="card">
@@ -599,7 +611,8 @@ async function run(){
     last={P,S,res,R,Ms,rep};
     renderResults();
     setP(.6);await tick();
-    await priceSweep(P,S,Ms,f=>setP(.6+.4*f));
+    await priceSweep(P,S,Ms,f=>setP(.6+.2*f));
+    await budgetSweep(P,S,Ms,f=>setP(.8+.2*f));
     setP(1);
   }finally{btn.disabled=false;btn.textContent="Simular sociedad";setTimeout(()=>$("#prog").hidden=true,400)}
 }
@@ -729,6 +742,53 @@ async function priceSweep(P,S,Ms,prog){
     `La utilidad típica se maximiza cerca de <b>${fmt$(best[0])}</b> (${diff>0?"+":""}${pct(diff)} frente a tu precio): ${fmtC(best[1])} vs ${fmtC(cur[1])} a ${fmt$(P.price)}.`;
 }
 
+/* ---------- cuánto invertir: barrido de presupuesto diario fijo ---------- */
+async function budgetSweep(P,S,Ms,prog){
+  const runs=Math.min(12,Ms.length),mults=[.25,.5,.75,1,1.5,2,3,4,6],rows=[];
+  const round=v=>v>=100000?Math.round(v/10000)*10000:Math.round(v/5000)*5000;
+  const levels=[...new Set(mults.map(m=>Math.max(10000,round(P.budget*m))))];
+  for(let k=0;k<levels.length;k++){
+    const Q={...P,budget:levels[k],autoscale:false},rs=[];
+    for(let j=0;j<runs;j++)rs.push(simulate(Q,S,Ms[j],false));
+    const pr=rs.map(r=>r.profit);
+    rows.push({b:levels[k],mid:median(pr),lo:quant(pr,.1),hi:quant(pr,.9),p:pr.filter(v=>v>0).length/pr.length,
+      orders:median(rs.map(r=>r.totO)),roas:median(rs.map(r=>r.roas)),cpa:median(rs.map(r=>r.cpa)),spend:median(rs.map(r=>r.spend))});
+    prog((k+1)/levels.length);await tick();
+  }
+  const e=econ(P),c0=e.c0,best=rows.reduce((a,b)=>b.mid>a.mid?b:a);
+  // recomendado: entre los presupuestos cuyo peor caso no pierde plata, el menor que logra 80 % de la mejor utilidad de ese grupo
+  const winning=best.mid>0,safeRows=rows.filter(r=>r.lo>=0&&r.mid>0);
+  const pool=safeRows.length?safeRows:rows.filter(r=>r.mid>0),top=pool.length?pool.reduce((a,b)=>b.mid>a.mid?b:a):best;
+  const rec=winning?pool.find(r=>r.mid>=.8*top.mid)||top:best;
+  // prueba: ~1 CPA de equilibrio por día durante 4 días (mínimo 30 mil/día)
+  const testDay=Math.max(30000,Math.round(Math.max(c0,0)/5000)*5000||30000),testDays=4,kill=Math.max(c0,0)*2;
+  // capital: ~14 días de anuncios antes de que llegue el recaudo + costos fijos + reserva de fletes por rechazos
+  const days14=Math.min(14,P.days),ordersDay=rec.orders/P.days;
+  const capital=Math.round((winning?rec.b*days14+P.fixed+ordersDay*days14*e.cr*P.ship*2:testDay*testDays+P.fixed)/1000)*1000;
+  $("#budPill").textContent=winning?"Hay presupuesto rentable":"Solo prueba";$("#budPill").classList.toggle("on",winning);
+  const T=[["Fase 1 · Prueba",`${fmt$(testDay)}/día`,`${testDays} días = ${fmt$(testDay*testDays)} en total`],
+    winning?["Fase 2 · Recomendado",`${fmt$(rec.b)}/día`,`Utilidad típica ${fmtC(rec.mid)} · gana en ${pct(rec.p)}${rec.lo>=0?" · el peor caso no pierde":""}`]
+           :["Fase 2 · Escalar","No escalar",`Ningún presupuesto deja ganancia típica`],
+    winning&&best.b!==rec.b?["Máximo con más riesgo",`${fmt$(best.b)}/día`,`Utilidad típica ${fmtC(best.mid)} · peor caso ${fmtC(best.lo)}`]:null,
+    ["Capital que necesitas",fmt$(capital),winning?"Anuncios de ~2 semanas antes del recaudo + fijos + reserva de fletes":"Solo la prueba y los costos fijos"]].filter(Boolean);
+  $("#budTiles").innerHTML=T.map(([k,v,s])=>`<div class="tile"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("");
+  lineChart($("#cBud"),{x:rows.map(r=>r.b),mid:rows.map(r=>r.mid),lo:rows.map(r=>r.lo),hi:rows.map(r=>r.hi),fx:fmtC,fy:fmtC,mark:winning?rows.indexOf(rec):null,
+    tip:(i,c)=>`${fmtC(c.x[i])}/día → típico ${fmtC(c.mid[i])} · rango ${fmtC(c.lo[i])} a ${fmtC(c.hi[i])}`});
+  $("#budTable").innerHTML=`<tr><th>Presupuesto diario</th><th class="r">Inversión total</th><th class="r">Pedidos</th><th class="r">CPA</th><th class="r">ROAS</th><th class="r">Utilidad típica</th><th class="r">Peor caso</th><th class="r">Gana en</th></tr>`+
+    rows.map(r=>`<tr${winning&&r===rec?' style="font-weight:700"':""}><td>${fmt$(r.b)}${winning&&r===rec?" ★":""}${r.b===P.budget?' <span class="muted small">(el tuyo)</span>':""}</td><td class="r">${fmtC(r.spend)}</td><td class="r">${Math.round(r.orders)}</td>
+      <td class="r">${isFinite(r.cpa)?fmtC(r.cpa):"—"}</td><td class="r">${num(r.roas,2)}</td><td class="r ${r.mid>=0?"pos":"neg"}">${fmtC(r.mid)}</td>
+      <td class="r ${r.lo>=0?"pos":"neg"}">${fmtC(r.lo)}</td><td class="r">${pct(r.p)}</td></tr>`).join("");
+  const rules=[
+    ["ok","Empieza con la prueba",`Invierte ${fmt$(testDay)} diarios durante ${testDays} días con 2 o 3 videos distintos. Tu CPA máximo (lo que puedes pagar por venta sin perder) es ${c0>0?fmt$(c0):"cero: este producto no aguanta publicidad"}.`],
+    ["bad","Apaga a tiempo",c0>0?`Si gastas ${fmt$(kill)} en un anuncio sin ninguna venta, apágalo. Si después de 3 días el CPA está por encima de ${fmt$(c0)}, cambia el video o el ángulo antes de seguir.`:"Con estos números cada venta pierde plata: ajusta precio, costo u oferta antes de pautar."],
+    ["warn","Escala de a poco",winning?`Si el CPA queda por debajo de ${fmt$(Math.round(c0*.7))}, sube el presupuesto 20–30 % cada 2 o 3 días hasta llegar a ${fmt$(rec.b)}/día. Subirlo de golpe reinicia el aprendizaje del anuncio y encarece las ventas.`:"No pases de la fase de prueba hasta que tus números reales muestren un CPA por debajo del de equilibrio."],
+    ["warn","Cuida la caja",`Con contraentrega el recaudo llega días después de la entrega: ten disponible ${fmt$(capital)} para no quedarte sin plata para anuncios mientras te pagan.`]];
+  $("#budRules").innerHTML=rules.map(([l,t,d])=>`<li><span class="ic ${l}">${{ok:"✓",warn:"!",bad:"✕"}[l]}</span><span><b>${t}</b><span class="muted">${d}</span></span></li>`).join("");
+  const btn=$("#budUse");btn.hidden=!winning||rec.b===P.budget;
+  btn.textContent=`Usar ${fmt$(rec.b)}/día en el formulario`;btn.dataset.v=rec.b;
+}
+$("#budUse").addEventListener("click",e=>{$("#presupuesto").value=e.target.dataset.v;e.target.textContent="Listo: vuelve a simular para ver el resultado";e.target.disabled=true;setTimeout(()=>{e.target.disabled=false},1500)});
+
 /* ---------- gráficos (canvas, sin librerías para funcionar sin internet) ---------- */
 function prepCanvas(cv){
   const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=+cv.getAttribute("height");
@@ -831,7 +891,7 @@ $("#play").addEventListener("click",()=>{
     Math.max(60,3000/last.P.days));
 });
 let rsz;addEventListener("resize",()=>{clearTimeout(rsz);rsz=setTimeout(()=>{if(!last||$("#out").hidden)return;
-  ["#cProfit","#cHist","#cPrice"].forEach(s=>$(s)._draw&&$(s)._draw());drawSoc(+$("#day").value)},150)});
+  ["#cProfit","#cHist","#cPrice","#cBud"].forEach(s=>$(s)._draw&&$(s)._draw());drawSoc(+$("#day").value)},150)});
 
 /* ---------- comparativa (localStorage) ---------- */
 const KEY="simulador-productos";
