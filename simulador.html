@@ -117,6 +117,20 @@ td.r,th.r{text-align:right}
 .note{background:var(--soft);border-radius:14px;padding:10px 12px;font-size:.84rem}
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
 .pill.on{background:color-mix(in srgb,var(--pos) 16%,transparent);color:var(--pos)}
+.ai{border-color:color-mix(in srgb,var(--accent) 40%,var(--card-border))}
+.ai .in{display:flex;gap:8px;flex-wrap:wrap}
+.ai .in input{flex:1 1 220px;min-width:0;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg);font-size:.95rem}
+.cands{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.cand{background:var(--soft);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:.85rem;min-width:0}
+.cand h3{font-size:.95rem}
+.cand .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.chip{flex:none;font-weight:700;font-size:.78rem;padding:4px 9px;border-radius:999px;color:#fff;background:var(--vc);font-variant-numeric:tabular-nums}
+.cand .kv{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;font-size:.78rem}
+.cand .kv span:nth-child(odd){color:var(--muted)}
+.cand .kv span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+.cand .lk{display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem}
+.cand .lk a{color:var(--accent)}
+.cand .btns{margin-top:auto}
 .sub{font-size:.74rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 </style>
 </head>
@@ -130,6 +144,21 @@ td.r,th.r{text-align:right}
     </div>
     <a class="link" href="./">← Mis Finanzas</a>
   </div>
+
+  <section class="card ai" id="aiCard">
+    <div class="row"><h2>Buscar productos con IA</h2><span class="pill" id="aiPill">IA</span></div>
+    <div id="aiOn" hidden style="display:flex;flex-direction:column;gap:12px">
+      <p class="muted small">Describe qué buscas. Claude propone productos que se venden por anuncios en Colombia con todos sus datos, y el simulador los evalúa uno por uno con tu campaña de la sección 4.</p>
+      <div class="in"><input id="aiQuery" placeholder="ej. productos para mascotas que resuelvan un problema, entre 50 y 150 mil"><button class="btn primary" id="aiSearch">Buscar productos</button></div>
+      <div class="in"><input id="aiName" placeholder="¿Ya tienes uno en mente? ej. masajeador de cuello eléctrico"><button class="btn" id="aiFill">Completar datos</button></div>
+      <div class="row" id="aiStatus" hidden><span class="small" id="aiStatusTxt"></span><button class="btn sm" id="aiStop">Detener</button></div>
+      <p class="neg small" id="aiErr" role="alert" hidden></p>
+      <div class="cands" id="aiCands"></div>
+      <div class="btns" id="aiMoreWrap" hidden><button class="btn sm" id="aiMore">Buscar otros diferentes</button></div>
+      <p class="muted small">Los precios y costos son estimados por la IA con su conocimiento general, no consultados en vivo. Antes de invertir revisa el costo real en Dropi y el precio en Mercado Libre con los enlaces de cada producto.</p>
+    </div>
+    <p class="muted small" id="aiOff">El buscador con IA funciona cuando abres el simulador dentro de claude.ai: <a href="https://claude.ai/artifact/5vscmd375TchXBMSXMNaLo" target="_blank" rel="noopener" style="color:var(--accent)">abrir versión con IA</a>.</p>
+  </section>
 
   <section class="card">
     <h2>1 · Producto</h2>
@@ -873,6 +902,132 @@ $("#lrTable").addEventListener("click",e=>{const id=e.target.dataset.ldel;if(!id
 $("#lrSummary").addEventListener("click",e=>{if(e.target.id!=="lrRej")return;$("#rechazo").value=e.target.dataset.v;renderLearn()});
 $("#lrUse").addEventListener("change",e=>{const L=lload();L.use=e.target.checked;lstore(L);renderLearn()});
 $("#nombre").addEventListener("input",renderLearn);
+/* ---------- buscador con IA (capacidad "sample" de claude.ai; se oculta donde no existe) ---------- */
+let sampleFn=null,aiCtl=null,aiSeen=[];
+const socCache={};
+const AI_SCHEMA=`Cada producto es un objeto JSON con exactamente estas claves:
+{"name": string (nombre comercial corto en español),
+ "cat": una de ${JSON.stringify(Object.keys(CATS))},
+ "price": precio de venta típico en pesos colombianos con anuncios y contraentrega (número entero),
+ "p2": precio por 2 unidades, con descuento atractivo (número entero),
+ "cost": costo aproximado para el vendedor en Dropi o proveedor nacional, en COP (número),
+ "ship": flete nacional aproximado por envío en COP (normalmente 10000 a 16000),
+ "perceived": precio al que la gente lo ve en Mercado Libre o tiendas, en COP,
+ "wow": 1-10 (qué tanto detiene el scroll y se comparte),
+ "prob": 1-10 (qué tan real y urgente es el problema que resuelve),
+ "qual": 1-10 (calidad típica de las unidades que se consiguen; baja = devoluciones),
+ "diff": 1-10 (qué tan difícil es conseguirlo en tiendas físicas),
+ "comp": 1-10 (saturación: 10 = todo el mundo lo vende con anuncios),
+ "ageMin": edad mínima del público (18-65), "ageMax": edad máxima (18-65),
+ "why": una frase de por qué puede vender,
+ "risk": una frase con el mayor riesgo,
+ "q": 2 a 4 palabras para buscarlo en Mercado Libre}`;
+const AI_RULES=`Eres un analista de e-commerce en Colombia (dropshipping con anuncios en Meta/TikTok y pago contraentrega).
+Sé realista y crítico: no infles las calificaciones (5 es un producto promedio), usa precios y costos plausibles del mercado colombiano actual y nunca inventes marcas.`;
+function aiClean(x,crea){
+  // dinero: solo dígitos ("$149.900" -> 149900); calificaciones y edades: número decimal
+  const n=v=>typeof v==="number"?v:+String(v??"").replace(/[^\d]/g,"")||0;
+  const d=v=>{const k=typeof v==="number"?v:parseFloat(String(v??"").replace(",","."));return isFinite(k)?k:0},r=v=>Math.round(clamp(d(v)||5,1,10));
+  if(!x||typeof x!=="object"||!x.name)return null;
+  const price=Math.round(n(x.price)/100)*100;if(!(price>=1000))return null;
+  const aMin=Math.round(clamp(d(x.ageMin)||22,18,64)),aMax=Math.round(clamp(d(x.ageMax)||55,aMin+1,65));
+  return {name:String(x.name).slice(0,60),cat:CATS[x.cat]?x.cat:"hogar",price,
+    p2:n(x.p2)>price&&n(x.p2)<2*price?Math.round(n(x.p2)/100)*100:0,
+    cost:Math.round(n(x.cost))||Math.round(price/4),ship:Math.round(n(x.ship))||12000,perceived:Math.round(n(x.perceived))||price,
+    wow:r(x.wow),prob:r(x.prob),qual:r(x.qual),diff:r(x.diff),comp:r(x.comp),crea,ageMin:aMin,ageMax:aMax,
+    why:String(x.why||"").slice(0,220),risk:String(x.risk||"").slice(0,220),q:String(x.q||x.name).slice(0,60)};
+}
+function aiBusy(txt){$("#aiStatus").hidden=!txt;$("#aiStatusTxt").textContent=txt||"";
+  ["#aiSearch","#aiFill","#aiMore"].forEach(s=>$(s).disabled=!!txt)}
+function aiFail(e){
+  const c=e&&e.code,msg={not_granted:"No diste permiso para usar Claude en esta página. Recárgala para que vuelva a preguntar.",
+    sampling_disabled:"Claude no está disponible para esta cuenta.",rate_limited:"Llegaste al límite de consultas por ahora. Intenta de nuevo en unos minutos.",
+    session_expired:"Tu sesión de claude.ai expiró. Vuelve a iniciar sesión.",invalid_json:"La respuesta no vino en el formato esperado. Intenta de nuevo.",
+    refused:"Claude no respondió esa búsqueda. Prueba describiéndola de otra forma."}[c]||"Algo falló al consultar. Intenta de nuevo.";
+  if(c==="cancelled")return;
+  $("#aiErr").textContent=msg;$("#aiErr").hidden=false;
+  if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(c))$("#aiSearch").disabled=$("#aiFill").disabled=true;
+}
+async function quickEval(P){
+  const key=P.cat;const S=socCache[key]||(socCache[key]=makeSociety(2000,P.cat,12345));
+  const Q=applyLearning({...P,N:2000}),Ms=drawMults(16,777,Q),res=Ms.map(M=>simulate(Q,S,M,false));
+  return {sc:scoreOf(Q,res),profit:median(res.map(x=>x.profit))};
+}
+async function aiSearch(more){
+  if(!sampleFn)return;
+  const q=$("#aiQuery").value.trim()||"productos ganadores variados para vender con anuncios";
+  if(!more)aiSeen=[];
+  $("#aiErr").hidden=true;aiCtl=new AbortController();aiBusy("Buscando productos… (puede tardar hasta un minuto)");
+  try{
+    const prompt=`${AI_RULES}
+
+Propón 6 productos distintos para esta búsqueda: "${q}".
+Que sean físicos, livianos, sin tallas, que se puedan enviar por mensajería y que hoy se vendan en Colombia.${aiSeen.length?`
+No repitas ninguno de estos: ${aiSeen.join("; ")}.`:""}
+
+${AI_SCHEMA}
+
+Responde solo con un arreglo JSON de 6 objetos.`;
+    const raw=await sampleFn.json(prompt,{signal:aiCtl.signal,cache:more?false:true});
+    const base=readP(),list=(Array.isArray(raw)?raw:[]).map(x=>aiClean(x,base.crea)).filter(Boolean);
+    if(!list.length)throw {code:"invalid_json"};
+    if(!more)$("#aiCands").innerHTML="";
+    const out=[];
+    for(let k=0;k<list.length;k++){
+      aiBusy(`Simulando ${k+1} de ${list.length}: ${list[k].name}`);await tick();
+      if(aiCtl.signal.aborted)break;
+      const P={...base,...list[k],p3:0,upPrice:0,upCost:0,realCTR:0,realCVR:0};
+      out.push({P,meta:list[k],...await quickEval(P)});aiSeen.push(list[k].name);
+    }
+    out.sort((a,b)=>b.sc.score-a.sc.score);
+    const start=aiStore.length;aiStore.push(...out.map(o=>o.P));
+    $("#aiCands").insertAdjacentHTML("beforeend",out.map((o,j)=>candHTML(o,start+j)).join(""));
+    $("#aiMoreWrap").hidden=false;
+  }catch(e){aiFail(e)}finally{aiBusy("")}
+}
+const aiStore=[];
+function candHTML(o,i){
+  const {P,meta,sc,profit}=o,[lab,col]=labelOf(sc.score);
+  const ml="https://listado.mercadolibre.com.co/"+encodeURIComponent(meta.q.toLowerCase().replace(/\s+/g,"-"));
+  const fb="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=CO&q="+encodeURIComponent(meta.q);
+  return `<div class="cand"><div class="top"><h3>${esc(meta.name)}</h3><span class="chip" style="--vc:${col}" title="${esc(lab)}">${sc.score}</span></div>
+    <span class="small">${esc(lab)} · gana en ${pct(sc.pProfit)} de los escenarios</span>
+    <div class="kv"><span>Precio · 2 unid.</span><span>${fmt$(P.price)}${P.p2?" · "+fmt$(P.p2):""}</span>
+      <span>Costo · flete</span><span>${fmt$(P.cost)} · ${fmt$(P.ship)}</span>
+      <span>Utilidad típica 30 días</span><span class="${profit>=0?"pos":"neg"}">${fmtC(profit)}</span>
+      <span>Público</span><span>${P.ageMin}–${P.ageMax} años · ${esc(CATS[P.cat].n)}</span></div>
+    ${meta.why?`<span>✓ ${esc(meta.why)}</span>`:""}${meta.risk?`<span class="muted">! ${esc(meta.risk)}</span>`:""}
+    <div class="lk"><a href="${ml}" target="_blank" rel="noopener">Ver precios en Mercado Libre</a><a href="${fb}" target="_blank" rel="noopener">Ver anuncios activos</a></div>
+    <div class="btns"><button class="btn sm primary" data-aiload="${i}">Cargar y simular completo</button></div></div>`;
+}
+$("#aiCands").addEventListener("click",e=>{const i=e.target.dataset.aiload;if(i==null)return;const P=aiStore[+i];if(!P)return;
+  setForm(P);renderLearn();$("#run").scrollIntoView({behavior:"smooth",block:"center"});run()});
+$("#aiSearch").addEventListener("click",()=>aiSearch(false));
+$("#aiMore").addEventListener("click",()=>aiSearch(true));
+$("#aiQuery").addEventListener("keydown",e=>{if(e.key==="Enter")aiSearch(false)});
+$("#aiStop").addEventListener("click",()=>aiCtl&&aiCtl.abort());
+async function aiFill(){
+  const name=$("#aiName").value.trim();if(!sampleFn||!name)return;
+  $("#aiErr").hidden=true;aiCtl=new AbortController();aiBusy("Calculando los datos del producto…");
+  try{
+    const raw=await sampleFn.json(`${AI_RULES}
+
+Estima los datos de este producto para venderlo en Colombia: "${name}".
+
+${AI_SCHEMA}
+
+Responde solo con un objeto JSON.`,{signal:aiCtl.signal});
+    const base=readP(),x=aiClean(Array.isArray(raw)?raw[0]:raw,base.crea);if(!x)throw {code:"invalid_json"};
+    setForm({...base,...x,p3:0,upPrice:0,upCost:0});renderLearn();
+    $("#aiCands").insertAdjacentHTML("afterbegin",`<p class="note" style="grid-column:1/-1">Datos de <b>${esc(x.name)}</b> cargados en el formulario. ${x.why?esc(x.why)+" ":""}${x.risk?"Riesgo: "+esc(x.risk):""} Revísalos y presiona <b>Simular sociedad</b>.</p>`);
+    $("#nombre").scrollIntoView({behavior:"smooth",block:"center"});
+  }catch(e){aiFail(e)}finally{aiBusy("")}
+}
+$("#aiFill").addEventListener("click",aiFill);
+$("#aiName").addEventListener("keydown",e=>{if(e.key==="Enter")aiFill()});
+(async()=>{try{sampleFn=window.claude&&window.claude.use?await window.claude.use("sample"):null}catch(e){sampleFn=null}
+  $("#aiOn").hidden=!sampleFn;$("#aiOff").hidden=!!sampleFn;$("#aiPill").textContent=sampleFn?"IA activa":"IA";$("#aiPill").classList.toggle("on",!!sampleFn)})();
+
 updateOffer();renderLearn();
 </script>
 </body>
