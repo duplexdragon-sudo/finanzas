@@ -700,7 +700,7 @@ const KEY="simulador-productos";
 const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}};
 const store=v=>{try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){}};
 function renderCmp(){
-  const L=load().sort((a,b)=>b.score-a.score);
+  const L=load().filter(x=>x&&x.name).map(x=>({...x,score:+x.score||0,p:+x.p||0,profit:+x.profit||0,roas:+x.roas||0,price:+x.price||0,label:x.label||""})).sort((a,b)=>b.score-a.score);
   $("#cmp").innerHTML=L.length?`<table><tr><th>Producto</th><th class="r">Puntaje</th><th class="r">Prob. ganar</th><th class="r">Utilidad típica</th><th class="r">ROAS</th><th></th></tr>`+
     L.map(x=>`<tr><td>${esc(x.name)}<div class="muted small">${esc(x.label)} · ${fmt$(x.price)}</div></td><td class="r"><b>${x.score}</b></td><td class="r">${pct(x.p)}</td>
       <td class="r ${x.profit>=0?"pos":"neg"}">${fmtC(x.profit)}</td><td class="r">${num(x.roas,2)}</td>
