@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EEF0F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08070F" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Simulador de Productos</title>
+<script>
+/* mismo tema que la app de finanzas */
+try{var c=JSON.parse(localStorage.getItem("mis-finanzas-config")||"{}").tema||{};var r=document.documentElement;
+if(c.modo==="oscuro")r.setAttribute("data-theme","dark");else if(c.modo==="claro")r.setAttribute("data-theme","light")}catch(e){}
+</script>
+<style>
+/* Layout: una columna de tarjetas de vidrio. Arriba el formulario del producto (producto, atractivo,
+   campaña, avanzado); abajo los resultados: veredicto, KPIs, curva de utilidad, mapa de la sociedad,
+   segmentos, voces de agentes, diagnóstico, precio óptimo y comparativa de productos guardados. */
+:root{
+  --accent:#7C3AED; --on-accent:#FFFFFF;
+  --bg:#EEF0F5; --fg:#15161D; --muted:#6B6F80; --line:rgba(21,22,29,.08); --soft:rgba(21,22,29,.05);
+  --card:rgba(255,255,255,.62); --card-border:rgba(255,255,255,.85); --card-shadow:0 8px 30px rgba(30,30,60,.07);
+  --pos:#18914A; --neg:#D6394A; --warn:#B7791F; --glow:.20; --grid:rgba(21,22,29,.07); --none:#B9BDCB;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --accent:#9D7BFF; --on-accent:#0B0816;
+  --bg:#08070F; --fg:#F3F2F9; --muted:#9C99B3; --line:rgba(255,255,255,.08); --soft:rgba(255,255,255,.06);
+  --card:rgba(30,27,52,.52); --card-border:rgba(170,160,255,.13); --card-shadow:0 10px 40px rgba(0,0,0,.35);
+  --pos:#3DDC84; --neg:#FF6B7F; --warn:#F2B84B; --glow:.38; --grid:rgba(255,255,255,.07); --none:#4A4760; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --accent:#9D7BFF; --on-accent:#0B0816;
+  --bg:#08070F; --fg:#F3F2F9; --muted:#9C99B3; --line:rgba(255,255,255,.08); --soft:rgba(255,255,255,.06);
+  --card:rgba(30,27,52,.52); --card-border:rgba(170,160,255,.13); --card-shadow:0 10px 40px rgba(0,0,0,.35);
+  --pos:#3DDC84; --neg:#FF6B7F; --warn:#F2B84B; --glow:.38; --grid:rgba(255,255,255,.07); --none:#4A4760; color-scheme:dark}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.4 var(--font);-webkit-font-smoothing:antialiased;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+   radial-gradient(60% 40% at 0% 15%,color-mix(in srgb,var(--accent) calc(var(--glow)*100%),transparent),transparent 70%),
+   radial-gradient(50% 35% at 100% 45%,color-mix(in srgb,var(--accent) calc(var(--glow)*70%),transparent),transparent 70%)}
+main{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:calc(14px + env(safe-area-inset-top,0px)) calc(60px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+h1{font-size:1.6rem} h2{font-size:1.06rem} h3{font-size:.95rem}
+p{margin:0}
+.muted{color:var(--muted)} .small{font-size:.8rem} .pos{color:var(--pos)} .neg{color:var(--neg)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--card-border);border-radius:22px;padding:18px;box-shadow:var(--card-shadow);
+  -webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);display:flex;flex-direction:column;gap:14px;min-width:0}
+.link{color:var(--muted);font-size:.85rem;text-decoration:none}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* formulario */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:.8rem;color:var(--muted);min-width:0}
+label.f input,label.f select{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:10px 12px;color:var(--fg);font-size:.95rem;min-width:0}
+label.f .h{font-size:.72rem;opacity:.85}
+.sl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:.85rem}
+.sl input{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+.sl b{font-variant-numeric:tabular-nums}
+.sl .h{grid-column:1/-1;font-size:.72rem;color:var(--muted)}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:.85rem}
+.chk input{accent-color:var(--accent);width:18px;height:18px;margin-top:1px;flex:none}
+details summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between}
+details summary::after{content:"＋";color:var(--muted)}
+details[open] summary::after{content:"－"}
+.btn{border:0;border-radius:14px;padding:13px 16px;font-weight:600;font-size:.95rem;cursor:pointer;background:var(--soft);color:var(--fg)}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
+.btn.sm{padding:8px 12px;font-size:.82rem;border-radius:11px}
+.btn:disabled{opacity:.6;cursor:progress}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.prog{height:6px;border-radius:3px;background:var(--soft);overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+
+/* resultados */
+.verdict{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
+.gauge{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--vc) calc(var(--v)*1%),var(--soft) 0)}
+.gauge div{width:82px;height:82px;border-radius:50%;background:var(--bg);display:grid;place-items:center;text-align:center}
+.gauge b{font-size:1.7rem;line-height:1;font-variant-numeric:tabular-nums}
+.gauge span{font-size:.65rem;color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:1.15rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--soft);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.tile .k{font-size:.74rem;color:var(--muted)}
+.tile .v{font-size:1.2rem;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tile .s{font-size:.72rem;color:var(--muted)}
+.cw{position:relative}
+.cw canvas{width:100%;display:block;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);font-size:.75rem;padding:6px 9px;border-radius:9px;white-space:nowrap;transform:translate(-50%,-110%);font-variant-numeric:tabular-nums;z-index:2}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{font-weight:600;color:var(--muted);font-size:.74rem;text-align:left;padding:6px 6px;border-bottom:1px solid var(--line)}
+td{padding:7px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+td.r,th.r{text-align:right}
+.tw{overflow-x:auto}
+.mini{height:6px;background:var(--soft);border-radius:3px;overflow:hidden;min-width:60px}
+.mini i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.voices{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.voice{background:var(--soft);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:6px;font-size:.85rem}
+.voice .who{font-size:.74rem;color:var(--muted)}
+.voice q{font-style:italic}
+.diag{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.diag li{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:.88rem}
+.diag li b{display:block}
+.ic{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:.72rem;font-weight:800;color:#fff}
+.ic.ok{background:var(--pos)} .ic.warn{background:var(--warn)} .ic.bad{background:var(--neg)}
+.dayctl{display:flex;gap:10px;align-items:center}
+.dayctl input{flex:1;accent-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="bgfx"></div>
+<main>
+  <div class="row">
+    <div>
+      <h1>Simulador de productos</h1>
+      <p class="muted small">Una sociedad sintética de consumidores colombianos decide si compra tu producto.</p>
+    </div>
+    <a class="link" href="./">← Mis Finanzas</a>
+  </div>
+
+  <section class="card">
+    <h2>1 · Producto</h2>
+    <div class="grid">
+      <label class="f">Nombre<input id="nombre" value="Corrector de postura"></label>
+      <label class="f">Categoría<select id="cat"></select></label>
+      <label class="f">Precio de venta<input id="precio" type="number" inputmode="numeric" min="0" step="100" value="89900"></label>
+      <label class="f">Costo del producto<input id="costo" type="number" inputmode="numeric" min="0" step="100" value="22000"></label>
+      <label class="f">Valor percibido <span class="h">¿A cuánto lo ve la gente en otras tiendas?</span><input id="percibido" type="number" inputmode="numeric" min="0" step="100" value="120000"></label>
+      <label class="f">Flete por envío<input id="flete" type="number" inputmode="numeric" min="0" step="100" value="12000"></label>
+      <label class="f">% pedidos contraentrega<input id="cod" type="number" min="0" max="100" value="80"></label>
+      <label class="f">% rechazo contraentrega<input id="rechazo" type="number" min="0" max="90" value="25"></label>
+      <label class="f">Comisión pasarela / recaudo %<input id="comision" type="number" min="0" max="30" step="0.1" value="3"></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2 · Atractivo del producto <span class="muted small">(1 a 10, sé honesto)</span></h2>
+    <div class="grid" id="sliders"></div>
+  </section>
+
+  <section class="card">
+    <h2>3 · Campaña de anuncios</h2>
+    <div class="grid">
+      <label class="f">Presupuesto diario<input id="presupuesto" type="number" inputmode="numeric" min="0" step="1000" value="150000"></label>
+      <label class="f">CPM (costo por 1.000 impresiones)<input id="cpm" type="number" inputmode="numeric" min="1" step="100" value="9000"></label>
+      <label class="f">Días a simular<input id="dias" type="number" min="7" max="120" value="30"></label>
+      <label class="f">Edad mínima del público<input id="edadMin" type="number" min="18" max="65" value="25"></label>
+      <label class="f">Edad máxima del público<input id="edadMax" type="number" min="18" max="65" value="55"></label>
+      <label class="f">Costos fijos del mes <span class="h">tienda, apps, dominio…</span><input id="fijos" type="number" inputmode="numeric" min="0" step="1000" value="150000"></label>
+      <label class="f">% clientes que recompran <span class="h">0 si no es consumible</span><input id="recompra" type="number" min="0" max="100" value="0"></label>
+      <label class="f">Recompran cada (días)<input id="ciclo" type="number" min="1" max="120" value="30"></label>
+    </div>
+    <label class="chk"><input id="escalar" type="checkbox" checked><span>Escalar y apagar como un media buyer: cada 3 días sube el presupuesto 30 % si el CPA está muy por debajo del CPA de equilibrio, lo baja si está por encima y apaga la campaña si sigue perdiendo.</span></label>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>4 · Avanzado y calibración con datos reales</summary>
+      <div class="grid" style="margin-top:14px">
+        <label class="f">Audiencia alcanzable (personas)<input id="mercado" type="number" min="10000" step="10000" value="1500000"></label>
+        <label class="f">Agentes simulados<select id="agentes"><option value="2000">2.000 (rápido)</option><option value="4000" selected>4.000</option><option value="8000">8.000 (preciso)</option></select></label>
+        <label class="f">Simulaciones Monte Carlo<select id="corridas"><option>20</option><option selected>40</option><option>80</option></select></label>
+        <label class="f">CTR real de tu prueba % <span class="h">opcional</span><input id="ctrReal" type="number" min="0" max="20" step="0.01" placeholder="ej. 1,8"></label>
+        <label class="f">Conversión real (clic → compra) % <span class="h">opcional</span><input id="cvrReal" type="number" min="0" max="50" step="0.01" placeholder="ej. 2,5"></label>
+      </div>
+      <p class="muted small" style="margin-top:10px">Si ya corriste una prueba de 3–5 días, pon aquí tu CTR y tu tasa de conversión: la sociedad se ajusta a esos números y la predicción se vuelve mucho más confiable.</p>
+    </details>
+  </section>
+
+  <div class="btns">
+    <button class="btn primary" id="run" style="flex:1">Simular sociedad</button>
+  </div>
+  <div class="prog" id="prog" hidden><i></i></div>
+
+  <div id="out" hidden style="display:flex;flex-direction:column;gap:14px">
+    <section class="card">
+      <div class="verdict">
+        <div class="gauge" id="gauge"><div><b id="score">0</b><span>de 100</span></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+          <span class="badge" id="label"></span>
+          <p id="summary" class="small"></p>
+        </div>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="btns"><button class="btn sm" id="save">Guardar en comparativa</button></div>
+    </section>
+
+    <section class="card">
+      <h2>Utilidad acumulada día a día</h2>
+      <p class="muted small">Línea: escenario típico (mediana). Franja: entre el escenario pesimista (P10) y el optimista (P90).</p>
+      <div class="cw"><canvas id="cProfit" height="240"></canvas></div>
+    </section>
+
+    <section class="card">
+      <h2>¿Qué tan seguido gano plata?</h2>
+      <p class="muted small" id="histTxt"></p>
+      <div class="cw"><canvas id="cHist" height="180"></canvas></div>
+      <div class="legend"><span><i style="background:var(--neg)"></i>Escenarios con pérdida</span><span><i style="background:var(--pos)"></i>Escenarios con ganancia</span></div>
+    </section>
+
+    <section class="card">
+      <div class="row"><h2>La sociedad</h2><span class="muted small" id="socTxt"></span></div>
+      <p class="muted small">Cada punto es un grupo de personas parecidas (edad e ingreso). Mira cómo se propaga la compra por anuncios y por voz a voz.</p>
+      <div class="cw"><canvas id="cSoc" height="300"></canvas></div>
+      <div class="legend"><span><i style="background:var(--none)"></i>No lo ha visto</span><span><i style="background:var(--accent)"></i>Vio el anuncio</span><span><i style="background:var(--pos)"></i>Compró</span><span><i style="background:var(--neg)"></i>Compró y quedó insatisfecho</span></div>
+      <div class="dayctl"><button class="btn sm" id="play">▶ Reproducir</button><input type="range" id="day" min="1" value="1"><b class="num small" id="dayLbl">Día 1</b></div>
+    </section>
+
+    <section class="card">
+      <h2>¿Quién compra?</h2>
+      <div class="tw"><table id="segTable"></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Voces de la sociedad</h2>
+      <p class="muted small">Agentes del público objetivo ven tu anuncio. Esto es lo que "piensan", según sus rasgos.</p>
+      <div class="voices" id="voices"></div>
+    </section>
+
+    <section class="card">
+      <h2>Diagnóstico</h2>
+      <ul class="diag" id="diag"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Precio óptimo</h2>
+      <p class="muted small" id="priceTxt">Calculando…</p>
+      <div class="cw"><canvas id="cPrice" height="200"></canvas></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Comparativa de productos</h2>
+    <div class="tw" id="cmp"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>¿Cómo funciona y qué tan confiable es?</summary>
+      <div class="small" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+        <p><b>Sociedad sintética.</b> Se crean miles de agentes con edad, estrato (1–6), ingreso, interés por la categoría, sensibilidad al precio, impulsividad, preferencia por contraentrega e influencia social. Están conectados en una red social donde cada uno se relaciona con gente parecida (misma edad y estrato) y con algunos desconocidos.</p>
+        <p><b>Cada día</b> tu presupuesto compra impresiones según el CPM. Los agentes del público ven el anuncio, algunos hacen clic (CTR según creativo, efecto WOW, interés y cansancio publicitario) y deciden comprar según un modelo de utilidad: interés + problema que resuelve + calidad + diferenciación − competencia + valor percibido frente al precio − cuánto pesa el precio en su ingreso. Los compradores generan <b>voz a voz</b> en su red y prueba social en los comentarios; los insatisfechos dejan malas reseñas que frenan las ventas.</p>
+        <p><b>Finanzas reales de e-commerce:</b> rechazos de contraentrega (pagas flete de ida y vuelta), devoluciones, comisiones, costo del producto, anuncios y costos fijos.</p>
+        <p><b>Monte Carlo.</b> Como nadie sabe de antemano el CTR o la conversión exactos, la simulación se repite muchas veces variando esos supuestos. Así obtienes una probabilidad de ganar plata, no un único número.</p>
+        <p><b>Límites.</b> Es una aproximación para filtrar productos y comparar ideas, no una garantía. Los números absolutos dependen de que tus calificaciones (1–10) sean honestas. Lo más útil: compara varios productos con los mismos criterios, y luego valida los mejores con una prueba real pequeña y vuelve a simular con tu CTR y conversión reales.</p>
+      </div>
+    </details>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const sig=x=>1/(1+Math.exp(-x));
+const fmt$=v=>(v<0?"-$":"$")+Math.round(Math.abs(v)).toLocaleString("es-CO");
+const fmtC=v=>{const s=v<0?"-$":"$",a=Math.abs(v);
+  if(a>=1e6)return s+(a/1e6).toFixed(a>=1e7?0:1).replace(".",",")+" M";
+  if(a>=1e3)return s+Math.round(a/1e3)+" mil";return s+Math.round(a)};
+const pct=(v,d=0)=>(v*100).toFixed(d).replace(".",",")+" %";
+const num=(v,d=1)=>v.toFixed(d).replace(".",",");
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const tick=()=>new Promise(r=>setTimeout(r,0));
+
+/* ---------- aleatoriedad reproducible ---------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){let u=0;while(!u)u=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r())}
+function median(a){const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length/2)]}
+function quant(a,q){const s=[...a].sort((x,y)=>x-y);return s[clamp(Math.round(q*(s.length-1)),0,s.length-1)]}
+
+/* ---------- categorías: edad pico de interés, dispersión, interés base, sesgo por ingreso ---------- */
+const CATS={
+  salud:{n:"Salud y bienestar",mu:45,sd:14,base:.28,inc:.1},
+  belleza:{n:"Belleza y cuidado personal",mu:30,sd:12,base:.30,inc:.1},
+  hogar:{n:"Hogar y organización",mu:40,sd:14,base:.32,inc:.1},
+  cocina:{n:"Cocina",mu:42,sd:14,base:.28,inc:.05},
+  tecnologia:{n:"Tecnología y gadgets",mu:27,sd:10,base:.30,inc:.2},
+  fitness:{n:"Fitness y deporte",mu:28,sd:9,base:.24,inc:.15},
+  mascotas:{n:"Mascotas",mu:33,sd:12,base:.22,inc:.1},
+  bebes:{n:"Bebés y maternidad",mu:29,sd:6,base:.14,inc:.05},
+  moda:{n:"Moda y accesorios",mu:26,sd:9,base:.30,inc:.1},
+  auto:{n:"Carros y motos",mu:35,sd:12,base:.18,inc:.15},
+  juguetes:{n:"Juguetes y niños",mu:36,sd:8,base:.18,inc:.05},
+  oficina:{n:"Oficina y estudio",mu:30,sd:10,base:.20,inc:.15}
+};
+const SLIDERS=[
+  ["wow","Efecto WOW / viralidad",7,"¿La gente se detiene a mirar el video y lo comparte?"],
+  ["problema","Resuelve un problema real",7,"¿Alivia un dolor, ahorra tiempo o dinero?"],
+  ["calidad","Calidad del producto",6,"Baja calidad = devoluciones y malas reseñas."],
+  ["diferencia","Diferenciación",6,"¿Es difícil conseguirlo en tiendas físicas o Mercado Libre?"],
+  ["competencia","Saturación del mercado",5,"10 = todo el mundo lo está vendiendo."],
+  ["creativo","Calidad de tus anuncios",6,"Videos, ganchos y página de venta."]
+];
+const EST_P=[.22,.33,.27,.11,.04,.03], EST_INC=[1.1,1.7,2.8,4.8,7.5,11]; // ingreso mensual hogar, millones COP
+const AGE_B=[[18,24],[25,34],[35,44],[45,54],[55,65]];
+const ageBucket=a=>a<25?0:a<35?1:a<45?2:a<55?3:4;
+
+/* ---------- formulario ---------- */
+$("#cat").innerHTML=Object.entries(CATS).map(([k,c])=>`<option value="${k}">${c.n}</option>`).join("");
+$("#sliders").innerHTML=SLIDERS.map(([id,n,v,h])=>
+  `<label class="sl"><span>${n}</span><b id="${id}V">${v}</b><input id="${id}" type="range" min="1" max="10" value="${v}"><span class="h">${h}</span></label>`).join("");
+SLIDERS.forEach(([id])=>$("#"+id).addEventListener("input",e=>$("#"+id+"V").textContent=e.target.value));
+
+function readP(){
+  const g=id=>{const v=parseFloat(String($("#"+id).value).replace(",","."));return isFinite(v)?v:0};
+  return {name:$("#nombre").value.trim()||"Producto",cat:$("#cat").value,
+    price:g("precio"),cost:g("costo"),perceived:g("percibido"),ship:g("flete"),
+    cod:clamp(g("cod")/100,0,1),rr:clamp(g("rechazo")/100,0,.9),fee:clamp(g("comision")/100,0,.3),fixed:g("fijos"),
+    wow:g("wow"),prob:g("problema"),qual:g("calidad"),diff:g("diferencia"),comp:g("competencia"),crea:g("creativo"),
+    budget:g("presupuesto"),cpm:g("cpm"),days:Math.round(clamp(g("dias"),7,120)),
+    ageMin:g("edadMin"),ageMax:g("edadMax"),autoscale:$("#escalar").checked,
+    rep:clamp(g("recompra")/100,0,1),cycle:Math.round(clamp(g("ciclo"),1,120)),
+    realCTR:g("ctrReal")/100,realCVR:g("cvrReal")/100,
+    market:Math.max(1e4,g("mercado")),N:g("agentes"),runs:g("corridas")};
+}
+
+/* ---------- la sociedad ---------- */
+const FIRST=["Laura","Andrés","Valentina","Juan","Camila","Santiago","Daniela","Carlos","Natalia","Felipe","Paola","Sebastián","Luisa","Diego","Mariana","Jorge","Ana","Miguel","Sara","Julián","Alejandra","Óscar","Diana","Mateo"];
+const CITY=["Bogotá","Medellín","Cali","Barranquilla","Bucaramanga","Pereira","Cartagena","Cúcuta","Ibagué","Manizales"];
+
+function makeSociety(N,cat,seed){
+  const r=rng(seed),C=CATS[cat],K=10;
+  const P={N,K,age:new Float32Array(N),est:new Uint8Array(N),inc:new Float32Array(N),int:new Float32Array(N),
+    ps:new Float32Array(N),imp:new Float32Array(N),cod:new Float32Array(N),infl:new Float32Array(N),
+    nb:new Int32Array(N*K),infN:new Float32Array(N),u:new Float32Array(N),name:[],city:[]};
+  for(let i=0;i<N;i++){
+    const age=18+47*Math.pow(r(),1.25);
+    let u=r(),e=0;while(e<5&&u>EST_P[e]){u-=EST_P[e];e++}
+    P.age[i]=age;P.est[i]=e;
+    P.inc[i]=EST_INC[e]*1e6*Math.exp(.35*gauss(r));
+    P.int[i]=clamp(C.base+.4*Math.exp(-.5*((age-C.mu)/C.sd)**2)+C.inc*(e-2)/3+.18*gauss(r),0,1);
+    P.ps[i]=clamp(.95-.13*e+.12*gauss(r),.1,1.2);
+    P.imp[i]=clamp(.65-.008*(age-18)+.18*gauss(r),0,1);
+    P.cod[i]=clamp(.9-.13*e+.1*gauss(r),0,1);
+    P.infl[i]=Math.min(8,1/Math.pow(r(),.45));P.u[i]=r();
+    P.name.push(FIRST[Math.floor(r()*FIRST.length)]);P.city.push(CITY[Math.floor(r()*CITY.length)]);
+  }
+  // red de mundo pequeño con homofilia: anillo ordenado por estrato y edad, con conexiones al azar
+  const order=[...Array(N).keys()].map(i=>[i,P.est[i]*100+P.age[i]+gauss(r)*6]).sort((a,b)=>a[1]-b[1]).map(x=>x[0]);
+  for(let p=0;p<N;p++){
+    const i=order[p];let s=0;
+    for(let k=0;k<K;k++){
+      const off=(k>>1)+1,j=r()<.12?Math.floor(r()*N):order[(p+(k&1?off:-off)+N)%N];
+      P.nb[i*K+k]=j;s+=P.infl[j];
+    }
+    P.infN[i]=1/s;
+  }
+  return P;
+}
+
+/* utilidad base de un agente frente al producto (sin prueba social) y sus componentes */
+function terms(P,S,i,price){
+  const vr=P.perceived>0?P.perceived/price:1, afford=Math.min(3,price/(S.inc[i]*.08));
+  return {interes:3.2*(S.int[i]-.5),valor:1.3*Math.log(vr),precio:-1.4*S.ps[i]*afford,
+    impulso:1.0*(S.imp[i]-.5),contra:.8*S.cod[i]*(P.cod-.6),
+    producto:.22*(P.prob-5)+.12*(P.qual-5)+.18*(P.diff-5)-.18*(P.comp-5)+.12*(P.crea-5)};
+}
+function utility(P,S,i,price){const t=terms(P,S,i,price);return -2.3+t.interes+t.valor+t.precio+t.impulso+t.contra+t.producto}
+
+/* contribución esperada por pedido antes de anuncios (lo máximo que puedes pagar por venta) */
+function econ(P,M){
+  const vr=P.perceived>0?P.perceived/P.price:1;
+  const dissat=clamp(.03+.022*(10-P.qual)+.12*Math.max(0,1/vr-1),.02,.6), ret=dissat*.35;
+  const cr=P.cod*clamp(P.rr*(M?M.rr:1),0,.9);
+  const c0=(1-cr)*((1-ret)*P.price*(1-P.fee)-P.cost+ret*P.cost*.5-ret*P.ship)-P.ship-cr*P.ship;
+  return {dissat,ret,cr,c0};
+}
+
+/* una corrida de la sociedad durante P.days días */
+function simulate(P,S,M,rec,refPrice){
+  const N=S.N,K=S.K,w=P.market/N,days=P.days;
+  const adopt=new Float32Array(N),talk=new Float32Array(N),freq=new Float32Array(N),U0=new Float32Array(N),tw=new Float32Array(N),ctrI=new Float32Array(N);
+  const {dissat,ret,cr,c0}=econ(P,M);
+  let R=0,inT=0,sT=0,ctrN=0;
+  for(let i=0;i<N;i++){
+    const t=S.age[i]>=P.ageMin&&S.age[i]<=P.ageMax;
+    U0[i]=utility(P,S,i,P.price);
+    tw[i]=(t?1:.08)*(.6+.8*S.int[i]);R+=tw[i]*w;
+    ctrI[i]=.4+1.2*S.int[i];
+    if(t){inT++;ctrN+=ctrI[i];sT+=sig(refPrice?utility(P,S,i,refPrice):U0[i])}
+  }
+  inT=Math.max(1,inT);
+  const ctrBase=(P.realCTR>0?P.realCTR/(ctrN/inT):.002+.0016*(P.crea+P.wow)/2)*M.ctr;
+  const cvrMax=(P.realCVR>0?P.realCVR/(sT/inT):.08)*M.cvr;
+  const q=(.01+.15*Math.pow(P.wow/10,3)+.02*P.qual/10)*M.viral;
+
+  const o={orders:[],spend:[],rev:[],profit:[],cum:[],org:0,adB:0,byEst:new Float64Array(6),byAge:new Float64Array(5),states:rec?[]:null};
+  let budget=P.budget,cumI=0,totO=0,totB=0,totU=0,cum=0,stopDay=0,peak=P.budget,sumRev=0,sumSpend=0,repO=0;
+  const happy=[];
+  for(let d=0;d<days;d++){
+    const cpm=P.cpm*M.cpm*(1+.08*cumI/R);
+    const I=budget>0?budget/cpm*1000:0;cumI+=I;
+    const bad=totB>0?totU/totB:0;
+    const proof=Math.min(.4,.12*Math.log(1+totO/40))-2.5*bad*Math.min(1,totB/30);
+    let newB=0,orgB=0;
+    for(let i=0;i<N;i++){
+      const rem=1-adopt[i];if(rem<=0)continue;
+      const imp=I*tw[i]/R;freq[i]+=imp;
+      const s=sig(U0[i]+proof);
+      const ctr=Math.min(.25,ctrBase*ctrI[i]/(1+freq[i]/3));
+      const pAd=Math.min(1,Math.min(1,imp*ctr)*cvrMax*s);
+      const b=i*K;let nb=0;for(let k=0;k<K;k++){const j=S.nb[b+k];nb+=talk[j]*S.infl[j]}
+      const pOrg=Math.min(1,q*(.4*talk[i]+.6*nb*S.infN[i])*s*S.int[i]*(1-bad));
+      const p=1-(1-pAd)*(1-pOrg);if(p<=0)continue;
+      const nbuy=rem*p;adopt[i]+=nbuy;talk[i]+=nbuy;
+      const people=nbuy*w;newB+=people;orgB+=people*pOrg/(pAd+pOrg);
+      o.byEst[S.est[i]]+=people;o.byAge[ageBucket(S.age[i])]+=people;
+    }
+    for(let i=0;i<N;i++)talk[i]*=.9; // el voz a voz se apaga: cada comprador habla sobre todo sus primeros días
+    happy[d]=newB*(1-dissat);
+    const rep=P.rep>0&&d>=P.cycle?happy[d-P.cycle]*P.rep:0;
+    const orders=newB+rep;
+    totB+=newB;totU+=newB*dissat;totO+=orders;o.org+=orgB;o.adB+=newB-orgB;repO+=rep;
+    const rej=orders*cr,deliv=orders-rej,rt=deliv*ret,sold=deliv-rt;
+    const rev=sold*P.price,cogs=deliv*P.cost-rt*P.cost*.5,shipC=(orders+rej+rt)*P.ship,fees=rev*P.fee,spend=I>0?budget:0;
+    const prof=rev-cogs-shipC-fees-spend-P.fixed/30;
+    cum+=prof;sumRev+=rev;sumSpend+=spend;
+    o.orders.push(orders);o.spend.push(spend);o.rev.push(rev);o.profit.push(prof);o.cum.push(cum);
+    // para el mapa: cada punto pinta un estado al azar (fijo por agente) con la probabilidad esperada en su grupo
+    if(rec){const st=new Uint8Array(N);for(let i=0;i<N;i++){const bu=adopt[i]*w,u=S.u[i];
+      st[i]=u<bu*dissat?3:u<bu?2:u<1-Math.exp(-freq[i])?1:0}o.states.push(st)}
+    if(P.autoscale&&budget>0&&d>=2&&(d+1)%3===0){
+      let o3=0,s3=0;for(let k=d-2;k<=d;k++){o3+=o.orders[k];s3+=o.spend[k]}
+      const cpa=o3>0?s3/o3:Infinity;
+      if(cpa<.7*c0)budget=Math.min(budget*1.3,P.budget*10);
+      else if(cpa>1.1*c0){budget*=.7;if(budget<P.budget*.3){budget=0;stopDay=d+1}}
+      peak=Math.max(peak,budget);
+    }
+  }
+  return Object.assign(o,{profit:cum,rev:sumRev,spend:sumSpend,totO,totB,repO,c0,dissat,ret,cr,stopDay,peak,
+    roas:sumSpend>0?sumRev/sumSpend:0,cpa:totO>0?sumSpend/totO:Infinity,orgShare:totB>0?o.org/totB:0,avgFreq:cumI/R});
+}
+
+function drawMults(n,seed,P){
+  const r=rng(seed),cal=P.realCTR>0,calv=P.realCVR>0,out=[];
+  for(let k=0;k<n;k++)out.push({ctr:Math.exp((cal?.08:.3)*gauss(r)),cvr:Math.exp((calv?.1:.35)*gauss(r)),
+    cpm:Math.exp(.2*gauss(r)),viral:Math.exp(.5*gauss(r)),rr:Math.exp(.2*gauss(r))});
+  return out;
+}
+
+/* ---------- orquestación ---------- */
+let last=null,socAnim=null;
+$("#run").addEventListener("click",run);
+
+async function run(){
+  const P=readP();
+  if(!(P.price>0)||!(P.cpm>0)){alert("Revisa el precio y el CPM.");return}
+  if(P.ageMin>=P.ageMax){alert("La edad mínima debe ser menor que la máxima.");return}
+  const btn=$("#run"),bar=$("#prog i");btn.disabled=true;$("#prog").hidden=false;
+  const setP=f=>{bar.style.width=(f*100)+"%";btn.textContent="Simulando… "+Math.round(f*100)+" %"};
+  try{
+    await tick();
+    const S=makeSociety(P.N,P.cat,12345),Ms=drawMults(P.runs,777,P),res=[];
+    for(let k=0;k<P.runs;k++){res.push(simulate(P,S,Ms[k],false));if(k%4===3){setP(.6*(k+1)/P.runs);await tick()}}
+    const profits=res.map(x=>x.profit),med=median(profits);
+    let rep=0;res.forEach((x,k)=>{if(Math.abs(x.profit-med)<Math.abs(res[rep].profit-med))rep=k});
+    const R=simulate(P,S,Ms[rep],true);
+    last={P,S,res,R,Ms,rep};
+    renderResults();
+    setP(.6);await tick();
+    await priceSweep(P,S,Ms,f=>setP(.6+.4*f));
+    setP(1);
+  }finally{btn.disabled=false;btn.textContent="Simular sociedad";setTimeout(()=>$("#prog").hidden=true,400)}
+}
+
+function scoreOf(P,res){
+  const pProfit=res.filter(x=>x.profit>0).length/res.length;
+  const e=econ(P);
+  const roas=median(res.map(x=>x.roas)),beRoas=e.c0>0?P.price/e.c0:Infinity;
+  const margin=(P.price-P.cost-P.ship)/P.price,org=median(res.map(x=>x.orgShare));
+  const score=Math.round(100*(.45*pProfit+.25*clamp((roas/beRoas-.6)/1,0,1)+.15*clamp((margin-.2)/.4,0,1)+.15*clamp(org/.35,0,1)));
+  return {pProfit,roas,beRoas,margin,org,score,e};
+}
+function labelOf(s){
+  return s>=75?["🏆 Producto ganador","var(--pos)"]:s>=55?["✅ Prometedor","var(--pos)"]:s>=35?["⚠️ Riesgoso","var(--warn)"]:["❌ No viable","var(--neg)"];
+}
+
+function renderResults(){
+  const {P,S,res,R}=last,sc=scoreOf(P,res),[lab,col]=labelOf(sc.score);
+  last.sc=sc;
+  $("#out").hidden=false;
+  $("#gauge").style.setProperty("--v",sc.score);$("#gauge").style.setProperty("--vc",col);
+  $("#score").textContent=sc.score;$("#label").textContent=lab;
+  const profits=res.map(x=>x.profit),p10=quant(profits,.1),p50=median(profits),p90=quant(profits,.9);
+  $("#summary").innerHTML=`En <b>${pct(sc.pProfit)}</b> de ${res.length} escenarios simulados terminas con ganancia en ${P.days} días. Escenario típico: <b class="${p50>=0?"pos":"neg"}">${fmt$(p50)}</b> (pesimista ${fmtC(p10)} · optimista ${fmtC(p90)}).`;
+  const orders=median(res.map(x=>x.totO)),cpa=median(res.map(x=>x.cpa)),spend=median(res.map(x=>x.spend));
+  const tiles=[
+    ["Pedidos",Math.round(orders).toLocaleString("es-CO"),`${num(orders/P.days)} por día`],
+    ["CPA esperado",isFinite(cpa)?fmt$(cpa):"—",`Equilibrio: ${sc.e.c0>0?fmt$(sc.e.c0):"sin margen"}`],
+    ["ROAS",num(sc.roas,2),`Necesitas ${isFinite(sc.beRoas)?num(sc.beRoas,2):"∞"} para no perder`],
+    ["Inversión en anuncios",fmtC(spend),R.stopDay?`Campaña apagada el día ${R.stopDay}`:`Presupuesto máx. ${fmtC(R.peak)}/día`],
+    ["Margen bruto",pct(sc.margin),`Precio ${num(P.price/Math.max(1,P.cost),1)}× el costo`],
+    ["Ventas por voz a voz",pct(sc.org),"Compras sin pagar anuncio"]
+  ];
+  $("#tiles").innerHTML=tiles.map(([k,v,s])=>`<div class="tile"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("");
+
+  // curva de utilidad
+  const days=[...Array(P.days).keys()].map(d=>d+1),band=d=>res.map(x=>x.cum[d]);
+  lineChart($("#cProfit"),{x:days,mid:days.map((_,d)=>quant(band(d),.5)),lo:days.map((_,d)=>quant(band(d),.1)),hi:days.map((_,d)=>quant(band(d),.9)),
+    fx:v=>"Día "+v,fy:fmtC,tip:(i,c)=>`Día ${days[i]} · típico ${fmtC(c.mid[i])} · rango ${fmtC(c.lo[i])} a ${fmtC(c.hi[i])}`});
+  histChart($("#cHist"),profits);
+  $("#histTxt").textContent=`Resultado final de cada uno de los ${res.length} escenarios (utilidad a ${P.days} días).`;
+
+  // segmentos
+  const w=P.market/S.N,popE=new Float64Array(6),popA=new Float64Array(5);
+  for(let i=0;i<S.N;i++){popE[S.est[i]]+=w;popA[ageBucket(S.age[i])]+=w}
+  const avg=k=>res.reduce((a,x)=>a.map((v,j)=>v+x[k][j]/res.length),new Array(x0(k)).fill(0));
+  function x0(k){return k==="byEst"?6:5}
+  const bE=avg("byEst"),bA=avg("byAge"),totB=bE.reduce((a,b)=>a+b,0)||1;
+  const rows=[...AGE_B.map((b,j)=>[`${b[0]}–${b[1]} años`,bA[j],popA[j]]),null,...bE.map((v,j)=>[`Estrato ${j+1}`,v,popE[j]])];
+  const mx=Math.max(...rows.filter(Boolean).map(r=>r[1]));
+  $("#segTable").innerHTML=`<tr><th>Segmento</th><th class="r">Compradores</th><th class="r">% de ventas</th><th></th></tr>`+
+    rows.map(r=>r?`<tr><td>${r[0]}</td><td class="r">${Math.round(r[1]).toLocaleString("es-CO")}</td><td class="r">${pct(r[1]/totB)}</td><td><div class="mini"><i style="width:${mx?100*r[1]/mx:0}%"></i></div></td></tr>`:
+      `<tr><td colspan="4" style="border:0;padding:4px"></td></tr>`).join("");
+
+  renderVoices();renderDiag();setupSociety();
+}
+
+/* ---------- voces ---------- */
+function renderVoices(){
+  const {P,S}=last,r=rng(99),target=[];
+  for(let i=0;i<S.N;i++)if(S.age[i]>=P.ageMin&&S.age[i]<=P.ageMax)target.push(i);
+  const pick=[];for(let k=0;k<6&&target.length;k++)pick.push(target[Math.floor(r()*target.length)]);
+  const POS={interes:"Justo lo que buscaba, me encanta este tipo de cosas.",valor:"¡A ese precio es una ganga!",
+    impulso:"Lo vi y lo quise de una 😅",producto:"Me resolvería un problema que tengo hace rato.",contra:"Si me lo traen y pago al recibir, lo pido."};
+  const NEG={interes:"No es algo que me interese, la verdad.",valor:"Lo he visto más barato, no creo que valga eso.",
+    precio:"Está muy caro para mi bolsillo este mes.",producto:"Hay muchos parecidos, no veo por qué este.",
+    contra:"No pago por adelantado en internet, solo contraentrega.",impulso:"Lo guardo y lo pienso… (y se le olvida)."};
+  $("#voices").innerHTML=pick.map(i=>{
+    const t=terms(P,S,i,P.price),s=sig(utility(P,S,i,P.price));
+    const ent=Object.entries(t),buy=s>=.25;
+    const k=buy?ent.sort((a,b)=>b[1]-a[1])[0][0]:ent.sort((a,b)=>a[1]-b[1])[0][0];
+    const quote=(buy?POS:NEG)[k]||(buy?POS.interes:NEG.interes);
+    return `<div class="voice"><span class="who">${S.name[i]}, ${Math.round(S.age[i])} años · ${S.city[i]} · estrato ${S.est[i]+1}</span>
+      <q>${quote}</q><span class="small">Disposición a comprar: <b class="${buy?"pos":"neg"}">${pct(s)}</b></span></div>`}).join("");
+}
+
+/* ---------- diagnóstico ---------- */
+function renderDiag(){
+  const {P,S,res,sc}=last,out=[];
+  const add=(lvl,t,d)=>out.push([lvl,t,d]);
+  const mult=P.price/Math.max(1,P.cost);
+  if(mult<2.5)add("bad","Margen muy bajo",`Vendes a ${num(mult,1)}× el costo. Con anuncios pagos y contraentrega lo sano es 3× o más.`);
+  else if(mult<3)add("warn","Margen justo",`Vendes a ${num(mult,1)}× el costo; cualquier subida del CPM te deja en pérdida.`);
+  else add("ok","Buen margen",`Vendes a ${num(mult,1)}× el costo.`);
+  const cpa=median(res.map(x=>x.cpa));
+  if(sc.e.c0<=0)add("bad","No hay plata para anuncios","Después de costo, flete, rechazos y comisiones no te queda nada por pedido. Sube el precio o baja costos.");
+  else if(cpa>sc.e.c0)add("bad","Cada venta te cuesta más de lo que deja",`CPA esperado ${fmt$(cpa)} vs. máximo tolerable ${fmt$(sc.e.c0)}.`);
+  else add("ok","El CPA cabe en el margen",`CPA esperado ${fmt$(cpa)} vs. máximo tolerable ${fmt$(sc.e.c0)}.`);
+  const lostCod=P.cod*P.rr*2*P.ship;
+  if(P.cod*P.rr>.12)add("warn","Los rechazos de contraentrega pesan",`Con ${pct(P.cod*P.rr)} de pedidos rechazados pierdes en promedio ${fmt$(lostCod)} de flete por pedido. Confirma pedidos por WhatsApp antes de despachar.`);
+  if(P.perceived>0&&P.price>P.perceived)add("bad","Precio por encima del valor percibido","La gente lo ve más barato en otras partes: baja el precio o muestra por qué el tuyo es mejor.");
+  let caro=0,n=0;for(let i=0;i<S.N;i++)if(S.age[i]>=P.ageMin&&S.age[i]<=P.ageMax){n++;if(terms(P,S,i,P.price).precio<-1)caro++}
+  if(n&&caro/n>.35)add("warn","Precio alto para tu público",`${pct(caro/n)} de tu público objetivo siente que el precio pesa mucho en su ingreso del mes.`);
+  if(sc.org>.25)add("ok","Tiene potencial viral",`${pct(sc.org)} de las compras llegan por voz a voz: aprovecha contenido orgánico en TikTok/Reels.`);
+  else if(P.wow<5)add("warn","Poco efecto WOW","Casi todo depende de anuncios pagos. Busca un ángulo visual más llamativo.");
+  const dis=sc.e.dissat;
+  if(dis>.15)add("warn","Riesgo de malas reseñas",`Se estima ${pct(dis)} de clientes insatisfechos, lo que frena la prueba social y genera devoluciones.`);
+  if(last.R.avgFreq>.6)add("warn","Cansancio publicitario","Tu audiencia ve el anuncio muchas veces: renueva creativos cada 5–7 días o amplía el público.");
+  if(P.comp>=8)add("warn","Mercado saturado","Si todos lo venden, compites por precio. Cambia el ángulo, haz un kit o una oferta 2×1.");
+  const rank={bad:0,warn:1,ok:2};out.sort((a,b)=>rank[a[0]]-rank[b[0]]);
+  const sym={ok:"✓",warn:"!",bad:"✕"};
+  $("#diag").innerHTML=out.map(([l,t,d])=>`<li><span class="ic ${l}" aria-label="${l}">${sym[l]}</span><span><b>${t}</b><span class="muted">${d}</span></span></li>`).join("");
+  last.diagExtra=out;
+}
+
+/* ---------- precio óptimo ---------- */
+async function priceSweep(P,S,Ms,prog){
+  const f=[];for(let x=.6;x<=1.81;x+=.1)f.push(+x.toFixed(2));
+  const runs=Math.min(12,Ms.length),pts=[];
+  for(let k=0;k<f.length;k++){
+    const P2={...P,price:Math.round(P.price*f[k]/100)*100},pr=[];
+    for(let j=0;j<runs;j++)pr.push(simulate(P2,S,Ms[j],false,P.price).profit);
+    pts.push([P2.price,median(pr)]);prog((k+1)/f.length);await tick();
+  }
+  const best=pts.reduce((a,b)=>b[1]>a[1]?b:a),cur=pts[f.indexOf(1)];
+  lineChart($("#cPrice"),{x:pts.map(p=>p[0]),mid:pts.map(p=>p[1]),fx:fmtC,fy:fmtC,mark:pts.indexOf(best),
+    tip:(i,c)=>`Precio ${fmt$(c.x[i])} → utilidad típica ${fmtC(c.mid[i])}`});
+  const diff=best[0]/P.price-1;
+  $("#priceTxt").innerHTML=best[1]<=0?`Ningún precio entre ${fmt$(pts[0][0])} y ${fmt$(pts[pts.length-1][0])} deja ganancia en el escenario típico: el problema no es el precio sino el atractivo, el costo o los anuncios.`:Math.abs(diff)<.05?`Tu precio actual (${fmt$(P.price)}) ya está cerca del óptimo para esta sociedad.`:
+    `La utilidad típica se maximiza cerca de <b>${fmt$(best[0])}</b> (${diff>0?"+":""}${pct(diff)} frente a tu precio): ${fmtC(best[1])} vs ${fmtC(cur[1])} a ${fmt$(P.price)}.`;
+}
+
+/* ---------- gráficos (canvas, sin librerías para funcionar sin internet) ---------- */
+function prepCanvas(cv){
+  const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=+cv.getAttribute("height");
+  cv.style.height=h+"px";cv.width=w*dpr;cv.height=h*dpr;
+  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.font="11px "+css("--font");return [g,w,h];
+}
+function niceTicks(lo,hi,n){
+  if(lo===hi){lo-=1;hi+=1}
+  const step0=(hi-lo)/n,mag=Math.pow(10,Math.floor(Math.log10(step0))),err=step0/mag;
+  const step=(err>=5?10:err>=2?5:err>=1.5?2:1)*mag,t=[];
+  for(let v=Math.ceil(lo/step)*step;v<=hi+1e-9;v+=step)t.push(v);return t;
+}
+function tooltip(cv,html,x,y){
+  let t=cv.parentNode.querySelector(".tip");
+  if(!html){if(t)t.remove();return}
+  if(!t){t=document.createElement("div");t.className="tip";cv.parentNode.appendChild(t)}
+  t.innerHTML=html;const w=cv.clientWidth;t.style.left=clamp(x,70,w-70)+"px";t.style.top=y+"px";
+}
+function lineChart(cv,c){
+  cv._c=c;
+  const draw=hi=>{
+    const [g,w,h]=prepCanvas(cv),L=54,Rr=12,T=12,B=26,pw=w-L-Rr,ph=h-T-B;
+    const all=[...c.mid,...(c.lo||[]),...(c.hi||[]),0],ymin=Math.min(...all),ymax=Math.max(...all);
+    const yt=niceTicks(ymin,ymax,4),y0=Math.min(yt[0],ymin),y1=Math.max(yt[yt.length-1],ymax);
+    const xs=c.x,X=i=>L+(xs.length<2?pw/2:pw*i/(xs.length-1)),Y=v=>T+ph*(1-(v-y0)/(y1-y0||1));
+    g.strokeStyle=css("--grid");g.fillStyle=css("--muted");g.lineWidth=1;g.textAlign="right";g.textBaseline="middle";
+    yt.forEach(v=>{g.beginPath();g.moveTo(L,Y(v));g.lineTo(w-Rr,Y(v));g.stroke();g.fillText(c.fy(v),L-6,Y(v))});
+    if(y0<0&&y1>0){g.strokeStyle=css("--muted");g.beginPath();g.moveTo(L,Y(0));g.lineTo(w-Rr,Y(0));g.stroke()}
+    g.textAlign="center";g.textBaseline="top";
+    const step=Math.max(1,Math.ceil(xs.length/6));
+    for(let i=0;i<xs.length;i+=step)g.fillText(c.fx(xs[i]),X(i),h-B+8);
+    const acc=css("--accent");
+    if(c.lo){g.fillStyle=acc;g.globalAlpha=.16;g.beginPath();
+      c.hi.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));
+      for(let i=c.lo.length-1;i>=0;i--)g.lineTo(X(i),Y(c.lo[i]));g.closePath();g.fill();g.globalAlpha=1}
+    g.strokeStyle=acc;g.lineWidth=2;g.lineJoin="round";g.beginPath();
+    c.mid.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));g.stroke();
+    const dot=(i,r)=>{g.beginPath();g.arc(X(i),Y(c.mid[i]),r,0,7);g.fillStyle=acc;g.fill();g.lineWidth=2;g.strokeStyle=css("--bg");g.stroke()};
+    if(c.mark!=null)dot(c.mark,5);
+    if(hi!=null){g.strokeStyle=css("--muted");g.lineWidth=1;g.setLineDash([3,3]);g.beginPath();g.moveTo(X(hi),T);g.lineTo(X(hi),T+ph);g.stroke();g.setLineDash([]);dot(hi,4)}
+    cv._geo={X,Y,L,pw,n:xs.length};
+  };
+  draw();
+  if(!cv._bound){cv._bound=true;
+    const mv=e=>{const c2=cv._c,gg=cv._geo,rc=cv.getBoundingClientRect(),x=e.clientX-rc.left;
+      const i=clamp(Math.round((x-gg.L)/gg.pw*(gg.n-1)),0,gg.n-1);cv._draw(i);tooltip(cv,c2.tip(i,c2),gg.X(i),gg.Y(c2.mid[i])-8)};
+    cv.addEventListener("pointermove",mv);cv.addEventListener("pointerdown",mv);
+    cv.addEventListener("pointerleave",()=>{cv._draw();tooltip(cv,null)});
+  }
+  cv._draw=draw;
+}
+function histChart(cv,vals){
+  // los bins arrancan en un múltiplo del paso para que $0 siempre sea un borde (ningún bin mezcla pérdidas y ganancias)
+  const vmin=Math.min(...vals),hi=Math.max(...vals),step=(hi-vmin)/12||1,lo=Math.floor(vmin/step)*step,nb=Math.max(1,Math.ceil((hi-lo)/step-1e-9)),bins=[];
+  for(let k=0;k<nb;k++)bins.push({a:lo+k*step,b:lo+(k+1)*step,n:0});
+  vals.forEach(v=>bins[Math.min(nb-1,Math.floor((v-lo)/step))].n++);
+  const draw=hov=>{
+    const [g,w,h]=prepCanvas(cv),L=12,Rr=12,T=10,B=26,pw=w-L-Rr,ph=h-T-B,mx=Math.max(...bins.map(b=>b.n)),bw=pw/nb;
+    g.strokeStyle=css("--grid");g.beginPath();g.moveTo(L,T+ph);g.lineTo(w-Rr,T+ph);g.stroke();
+    bins.forEach((b,k)=>{if(!b.n)return;const x=L+k*bw+1,bh=ph*b.n/mx,y=T+ph-bh,ww=bw-2,r=Math.min(4,ww/2,bh);
+      g.fillStyle=css((b.a+b.b)/2>=0?"--pos":"--neg");g.globalAlpha=hov==null||hov===k?1:.45;
+      g.beginPath();g.moveTo(x,T+ph);g.lineTo(x,y+r);g.arcTo(x,y,x+r,y,r);g.lineTo(x+ww-r,y);g.arcTo(x+ww,y,x+ww,y+r,r);g.lineTo(x+ww,T+ph);g.fill()});
+    g.globalAlpha=1;g.fillStyle=css("--muted");g.textBaseline="top";
+    g.textAlign="left";g.fillText(fmtC(lo),L,h-B+8);g.textAlign="right";g.fillText(fmtC(hi),w-Rr,h-B+8);
+    const z=L+pw*(-lo)/(hi-lo);if(lo<0&&hi>0&&z-L>60&&w-Rr-z>60){g.textAlign="center";g.fillText("$0",z,h-B+8)}
+    cv._bw=bw;cv._L=L;cv._T=T;cv._ph=ph;cv._mx=mx;
+  };
+  draw();cv._draw=draw;cv._bins=bins;
+  if(!cv._bound){cv._bound=true;
+    const mv=e=>{const rc=cv.getBoundingClientRect(),k=clamp(Math.floor((e.clientX-rc.left-cv._L)/cv._bw),0,cv._bins.length-1),b=cv._bins[k];
+      cv._draw(k);tooltip(cv,`${b.n} escenario${b.n===1?"":"s"} entre ${fmtC(b.a)} y ${fmtC(b.b)}`,cv._L+(k+.5)*cv._bw,cv._T+cv._ph*(1-b.n/cv._mx)-6)};
+    cv.addEventListener("pointermove",mv);cv.addEventListener("pointerdown",mv);
+    cv.addEventListener("pointerleave",()=>{cv._draw();tooltip(cv,null)});
+  }
+}
+
+/* ---------- mapa de la sociedad ---------- */
+function setupSociety(){
+  const {P,S,R}=last,sl=$("#day");sl.max=P.days;sl.value=P.days;
+  const lo=Math.log(4e5),hi=Math.log(3e7);
+  last.pos=Array.from({length:S.N},(_,i)=>[(S.age[i]-18)/47,clamp((Math.log(S.inc[i])-lo)/(hi-lo),0,1)]);
+  drawSoc(P.days);
+  $("#socTxt").textContent=`${S.N.toLocaleString("es-CO")} agentes ≈ ${Math.round(P.market/S.N)} personas cada uno`;
+}
+function drawSoc(day){
+  const {S,R,pos}=last,st=R.states[day-1],[g,w,h]=prepCanvas($("#cSoc")),L=40,Rr=10,T=10,B=28,pw=w-L-Rr,ph=h-T-B;
+  const col=[css("--none"),css("--accent"),css("--pos"),css("--neg")],rad=S.N>5000?1.6:2.2;
+  g.fillStyle=css("--muted");g.textAlign="center";g.textBaseline="top";
+  [18,25,35,45,55,65].forEach(a=>{g.textAlign=a===65?"right":"center";g.fillText(a+" años",L+pw*(a-18)/47,h-B+10)});g.textAlign="center";
+  g.save();g.translate(12,T+ph/2);g.rotate(-Math.PI/2);g.fillText("ingreso del hogar →",0,-4);g.restore();
+  for(const layer of [0,1,2,3]){g.fillStyle=col[layer];g.globalAlpha=layer===0?.7:layer===1?.55:1;
+    for(let i=0;i<S.N;i++)if(st[i]===layer){g.beginPath();g.arc(L+pos[i][0]*pw,T+(1-pos[i][1])*ph,layer>=2?rad+1:rad,0,7);g.fill()}}
+  g.globalAlpha=1;$("#dayLbl").textContent="Día "+day;
+}
+$("#day").addEventListener("input",e=>drawSoc(+e.target.value));
+$("#play").addEventListener("click",()=>{
+  if(socAnim){clearInterval(socAnim);socAnim=null;$("#play").textContent="▶ Reproducir";return}
+  let d=1;$("#play").textContent="❚❚ Pausa";
+  socAnim=setInterval(()=>{$("#day").value=d;drawSoc(d);if(++d>last.P.days){clearInterval(socAnim);socAnim=null;$("#play").textContent="▶ Reproducir"}},
+    Math.max(60,3000/last.P.days));
+});
+let rsz;addEventListener("resize",()=>{clearTimeout(rsz);rsz=setTimeout(()=>{if(!last||$("#out").hidden)return;
+  ["#cProfit","#cHist","#cPrice"].forEach(s=>$(s)._draw&&$(s)._draw());drawSoc(+$("#day").value)},150)});
+
+/* ---------- comparativa (localStorage) ---------- */
+const KEY="simulador-productos";
+const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}};
+const store=v=>{try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){}};
+function renderCmp(){
+  const L=load().sort((a,b)=>b.score-a.score);
+  $("#cmp").innerHTML=L.length?`<table><tr><th>Producto</th><th class="r">Puntaje</th><th class="r">Prob. ganar</th><th class="r">Utilidad típica</th><th class="r">ROAS</th><th></th></tr>`+
+    L.map(x=>`<tr><td>${esc(x.name)}<div class="muted small">${esc(x.label)} · ${fmt$(x.price)}</div></td><td class="r"><b>${x.score}</b></td><td class="r">${pct(x.p)}</td>
+      <td class="r ${x.profit>=0?"pos":"neg"}">${fmtC(x.profit)}</td><td class="r">${num(x.roas,2)}</td>
+      <td class="r"><button class="btn sm" data-del="${x.id}" aria-label="Borrar ${esc(x.name)}">✕</button></td></tr>`).join("")+`</table>`
+    :`<p class="muted small">Simula varios productos y guárdalos aquí para ver cuál conviene más.</p>`;
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+$("#cmp").addEventListener("click",e=>{const id=e.target.dataset.del;if(!id)return;store(load().filter(x=>String(x.id)!==id));renderCmp()});
+$("#save").addEventListener("click",()=>{
+  if(!last)return;const {P,res,sc}=last;
+  const L=load().filter(x=>x.name!==P.name);
+  L.push({id:Date.now(),name:P.name,price:P.price,score:sc.score,label:labelOf(sc.score)[0],p:sc.pProfit,profit:median(res.map(x=>x.profit)),roas:sc.roas});
+  store(L);renderCmp();$("#save").textContent="Guardado ✓";setTimeout(()=>$("#save").textContent="Guardar en comparativa",1500);
+});
+renderCmp();
+</script>
+</body>
+</html>
