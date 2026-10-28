@@ -932,7 +932,7 @@ let sampleFn=null,mcpNs=null,permNs=null,aiCtl=null,aiSeen=[],aiAll=[],aiChecked
 const socCache={},aiStore=[];
 const ENGINES=[
   {id:"par",name:"Parallel Search",server:"Parallel Search",search:"web_search",fetch:"web_fetch",note:"gratis, sin cuenta"},
-  {id:"exa",name:"Exa",server:"Exa",search:"web_search_exa",note:"requiere cuenta"}];
+  {id:"exa",name:"Exa",server:"Exa",search:"web_search_exa",fetch:"web_fetch_exa",note:"requiere cuenta"}];
 const engState={};   // id -> "ok" | "missing"
 const WIN=75,ROUNDS=4,WANT=3;
 const ICONS={salud:'<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M8 12h2l1-2 2 4 1-2h2"/>',
@@ -1016,6 +1016,20 @@ function renderEngines(){
   $("#engHelp").innerHTML=`Para que busque <b>en internet de verdad</b> (precios reales de Mercado Libre, productos virales, anuncios activos), conecta <b>Parallel Search</b> (gratis) o <b>Exa</b> en claude.ai → <b>Configuración → Conectores</b> y recarga esta página.${mcpNs?"":" Esta vista no puede usar conectores."}`;
   ENGINES.forEach(e=>{const el=$("#eng-"+e.id);if(el)el.addEventListener("change",()=>{saved[e.id]=el.checked;try{localStorage.setItem("simulador-motores",JSON.stringify(saved))}catch(_){}})});
 }
+/* el esquema del conector se respeta tal cual; solo se acortan las descripciones largas para caber en 4 KB,
+   y se ocultan los campos que la página llena sola (session_id) */
+const AI_SESSION=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
+function compactSchema(sc){
+  if(!sc||sc.type!=="object")return null;
+  const cut=(o,n)=>{if(Array.isArray(o))return o.map(x=>cut(x,n));if(!o||typeof o!=="object")return o;
+    const r={};for(const [k,v] of Object.entries(o)){if(k==="title"||k==="$schema")continue;r[k]=k==="description"&&typeof v==="string"?v.slice(0,n):cut(v,n)}return r};
+  for(const n of [400,200,100,40]){
+    const c=cut(sc,n);
+    if(c.properties&&c.properties.session_id){c.properties={...c.properties};delete c.properties.session_id;if(Array.isArray(c.required))c.required=c.required.filter(x=>x!=="session_id")}
+    if(JSON.stringify(c).length<=4000)return c;
+  }
+  return null;
+}
 /* arma las herramientas de búsqueda que Claude puede usar; el esquema de cada una se lee del conector, nunca se adivina */
 async function engineTools(signal){
   const on=ENGINES.filter(e=>engState[e.id]==="ok"&&$("#eng-"+e.id)?.checked);
@@ -1027,12 +1041,14 @@ async function engineTools(signal){
     for(const [kind,tool] of [["buscar",e.search],["leer",e.fetch]]){
       if(!tool)continue;
       let desc;try{desc=await mcpNs.describeTool(e.server,tool)}catch(_){continue}
-      const schema=desc&&desc.inputSchema&&desc.inputSchema.type==="object"?desc.inputSchema:null;if(!schema)continue;
-      if(JSON.stringify(schema).length>4000)continue;
+      const schema=compactSchema(desc&&desc.inputSchema);if(!schema)continue;
+      const needsSession=!!(desc.inputSchema.properties&&desc.inputSchema.properties.session_id);
       tools.push({name:`${kind}_${e.id}`,
         description:(kind==="buscar"?`Busca en internet con ${e.name}. `:`Lee el contenido de una página web con ${e.name}. `)+String(desc.description||"").slice(0,700),
         inputSchema:schema,
         async execute(input,ctx){
+          input={...(input||{})};
+          if(needsSession&&!input.session_id)input.session_id=AI_SESSION;
           const what=String(Object.values(input||{}).flat().join(" ")).slice(0,70);
           aiBusy(`${kind==="buscar"?"Buscando":"Leyendo"} en ${e.name}: ${what}…`);
           try{const r=await mcpNs.callTool(e.server,tool,input,{signal:ctx.signal});
