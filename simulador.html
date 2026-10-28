@@ -148,13 +148,13 @@ td.r,th.r{text-align:right}
   <section class="card ai" id="aiCard">
     <div class="row"><h2>Buscar productos con IA</h2><span class="pill" id="aiPill">IA</span></div>
     <div id="aiOn" hidden style="display:flex;flex-direction:column;gap:12px">
-      <p class="muted small">Describe qué buscas. Claude propone productos que se venden por anuncios en Colombia con todos sus datos, y el simulador los evalúa uno por uno con tu campaña de la sección 4.</p>
-      <div class="in"><input id="aiQuery" placeholder="ej. productos para mascotas que resuelvan un problema, entre 50 y 150 mil"><button class="btn primary" id="aiSearch">Buscar productos</button></div>
+      <p class="muted small">Describe qué buscas. Claude propone productos que se venden por anuncios en Colombia, el simulador los prueba uno por uno con tu campaña de la sección 4 y <b>solo te muestra los que salen como Producto ganador</b> (75 puntos o más).</p>
+      <div class="in"><input id="aiQuery" placeholder="ej. productos para mascotas que resuelvan un problema, entre 50 y 150 mil"><button class="btn primary" id="aiSearch">Buscar ganadores</button></div>
       <div class="in"><input id="aiName" placeholder="¿Ya tienes uno en mente? ej. masajeador de cuello eléctrico"><button class="btn" id="aiFill">Completar datos</button></div>
       <div class="row" id="aiStatus" hidden><span class="small" id="aiStatusTxt"></span><button class="btn sm" id="aiStop">Detener</button></div>
       <p class="neg small" id="aiErr" role="alert" hidden></p>
       <div class="cands" id="aiCands"></div>
-      <div class="btns" id="aiMoreWrap" hidden><button class="btn sm" id="aiMore">Buscar otros diferentes</button></div>
+      <div class="row" id="aiMoreWrap" hidden><span class="muted small" id="aiSummary"></span><button class="btn sm" id="aiMore">Buscar más ganadores</button></div>
       <p class="muted small">Los precios y costos son estimados por la IA con su conocimiento general, no consultados en vivo. Antes de invertir revisa el costo real en Dropi y el precio en Mercado Libre con los enlaces de cada producto.</p>
     </div>
     <p class="muted small" id="aiOff">El buscador con IA funciona cuando abres el simulador dentro de claude.ai: <a href="https://claude.ai/artifact/5vscmd375TchXBMSXMNaLo" target="_blank" rel="noopener" style="color:var(--accent)">abrir versión con IA</a>.</p>
@@ -953,36 +953,57 @@ async function quickEval(P){
   const Q=applyLearning({...P,N:2000}),Ms=drawMults(16,777,Q),res=Ms.map(M=>simulate(Q,S,M,false));
   return {sc:scoreOf(Q,res),profit:median(res.map(x=>x.profit))};
 }
+/* solo ganadores: pide productos por rondas, los filtra con la simulación rápida y confirma con la completa */
+const WIN=75,ROUNDS=4,WANT=3;
+let aiChecked=0,aiBest=null;
+async function fullEval(P){
+  const key=P.cat+"4000";const S=socCache[key]||(socCache[key]=makeSociety(4000,P.cat,12345));
+  const Q=applyLearning({...P,N:4000}),Ms=drawMults(40,777,Q),res=[];
+  for(let k=0;k<Ms.length;k++){res.push(simulate(Q,S,Ms[k],false));if(k%10===9)await tick()}
+  return {sc:scoreOf(Q,res),profit:median(res.map(x=>x.profit))};
+}
 async function aiSearch(more){
   if(!sampleFn)return;
   const q=$("#aiQuery").value.trim()||"productos ganadores variados para vender con anuncios";
-  if(!more)aiSeen=[];
-  $("#aiErr").hidden=true;aiCtl=new AbortController();aiBusy("Buscando productos… (puede tardar hasta un minuto)");
+  if(!more){aiSeen=[];aiChecked=0;aiBest=null;$("#aiCands").innerHTML=""}
+  $("#aiErr").hidden=true;aiCtl=new AbortController();
+  const base=readP(),wins=[];
   try{
-    const prompt=`${AI_RULES}
+    for(let round=1;round<=ROUNDS&&wins.length<WANT&&!aiCtl.signal.aborted;round++){
+      aiBusy(`Ronda ${round} de ${ROUNDS}: pidiendo productos a Claude… · revisados ${aiChecked} · ganadores ${wins.length}`);
+      const prompt=`${AI_RULES}
 
-Propón 6 productos distintos para esta búsqueda: "${q}".
-Que sean físicos, livianos, sin tallas, que se puedan enviar por mensajería y que hoy se vendan en Colombia.${aiSeen.length?`
+Busco SOLO candidatos a producto ganador para esta búsqueda: "${q}".
+Propón 8 productos distintos que cumplan todo esto:
+- se venden hoy en Colombia con anuncios y tienen demanda real;
+- resuelven un problema claro o generan un efecto WOW fuerte en video;
+- el costo es como máximo un tercio del precio de venta y el ticket deja margen después de un flete de unos 12.000 COP;
+- no son genéricos que se consiguen en cualquier tienda o que ya están muy saturados;
+- son físicos, livianos, sin tallas y fáciles de enviar.
+Califica con honestidad aunque sean buenos candidatos: un simulador los va a filtrar y descarta los que no dan.${aiSeen.length?`
 No repitas ninguno de estos: ${aiSeen.join("; ")}.`:""}
 
 ${AI_SCHEMA}
 
-Responde solo con un arreglo JSON de 6 objetos.`;
-    const raw=await sampleFn.json(prompt,{signal:aiCtl.signal,cache:more?false:true});
-    const base=readP(),list=(Array.isArray(raw)?raw:[]).map(x=>aiClean(x,base.crea)).filter(Boolean);
-    if(!list.length)throw {code:"invalid_json"};
-    if(!more)$("#aiCands").innerHTML="";
-    const out=[];
-    for(let k=0;k<list.length;k++){
-      aiBusy(`Simulando ${k+1} de ${list.length}: ${list[k].name}`);await tick();
-      if(aiCtl.signal.aborted)break;
-      const P={...base,...list[k],p3:0,upPrice:0,upCost:0,realCTR:0,realCVR:0};
-      out.push({P,meta:list[k],...await quickEval(P)});aiSeen.push(list[k].name);
+Responde solo con un arreglo JSON de 8 objetos.`;
+      const raw=await sampleFn.json(prompt,{signal:aiCtl.signal,cache:false});
+      const list=(Array.isArray(raw)?raw:[]).map(x=>aiClean(x,base.crea)).filter(Boolean).filter(x=>!aiSeen.includes(x.name));
+      for(const m of list){
+        if(aiCtl.signal.aborted||wins.length>=WANT)break;
+        aiSeen.push(m.name);aiChecked++;
+        aiBusy(`Ronda ${round} de ${ROUNDS}: simulando ${m.name} · revisados ${aiChecked} · ganadores ${wins.length}`);await tick();
+        const P={...base,...m,p3:0,upPrice:0,upCost:0,realCTR:0,realCVR:0};
+        let ev=await quickEval(P);
+        if(ev.sc.score>=WIN-8){aiBusy(`Confirmando ${m.name} con la simulación completa…`);ev=await fullEval(P)}
+        if(!aiBest||ev.sc.score>aiBest.score)aiBest={name:m.name,score:ev.sc.score};
+        if(ev.sc.score>=WIN){const o={P,meta:m,...ev},k=aiStore.length;aiStore.push(P);wins.push(o);
+          $("#aiCands").insertAdjacentHTML("beforeend",candHTML(o,k))}
+      }
     }
-    out.sort((a,b)=>b.sc.score-a.sc.score);
-    const start=aiStore.length;aiStore.push(...out.map(o=>o.P));
-    $("#aiCands").insertAdjacentHTML("beforeend",out.map((o,j)=>candHTML(o,start+j)).join(""));
+    const shown=document.querySelectorAll("#aiCands .cand").length;
+    if(!shown)$("#aiCands").innerHTML=`<p class="note" style="grid-column:1/-1">Revisé <b>${aiChecked}</b> productos y ninguno salió como <b>Producto ganador</b> con tu campaña actual${aiBest?` (el más cercano fue ${esc(aiBest.name)} con ${aiBest.score} puntos)`:""}. Prueba con otra búsqueda o con <b>Buscar más ganadores</b>. Si tienes buenos videos, sube "Calidad de tus anuncios" en la sección 3; si consigues mejores costos en Dropi, el resultado también cambia.</p>`;
     $("#aiMoreWrap").hidden=false;
+    $("#aiSummary").textContent=`${shown} ganador${shown===1?"":"es"} de ${aiChecked} productos revisados. Los demás se descartaron.`;
   }catch(e){aiFail(e)}finally{aiBusy("")}
 }
 const aiStore=[];
