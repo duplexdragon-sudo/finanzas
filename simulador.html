@@ -120,6 +120,12 @@ td.r,th.r{text-align:right}
 .ai{border-color:color-mix(in srgb,var(--accent) 40%,var(--card-border))}
 .ai .in{display:flex;gap:8px;flex-wrap:wrap}
 .ai .in input{flex:1 1 220px;min-width:0;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg);font-size:.95rem}
+.plan{display:flex;flex-direction:column;gap:8px;font-size:.84rem}
+.plan .lvl{background:var(--soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.plan .lvl.l2{margin-left:14px}
+.plan .lvl b{font-weight:600}
+.plan .lvl span{color:var(--muted);font-size:.78rem}
+.steps{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:.85rem}
 .engines{display:flex;flex-wrap:wrap;gap:8px}
 .eng{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--soft);font-size:.82rem;cursor:pointer}
 .eng input{accent-color:var(--accent);width:16px;height:16px;margin:0}
@@ -319,6 +325,28 @@ td.r,th.r{text-align:right}
       <h3>Reglas para tu campaña</h3>
       <ul class="diag" id="budRules"></ul>
       <div class="btns"><button class="btn sm" id="budUse" hidden></button></div>
+    </section>
+
+    <section class="card" id="metaCard">
+      <div class="row"><h2>Archivo para Meta Ads</h2><span class="pill">Campaña de prueba</span></div>
+      <p class="muted small">Tu campaña de prueba lista para importar en el Administrador de anuncios: segmentada con lo que mostró la simulación, con el presupuesto de la fase de prueba y un límite de gasto. Todo queda en pausa para que lo revises antes de gastar.</p>
+      <div class="grid">
+        <label class="f">Enlace de tu página de venta<input id="metaLink" type="url" inputmode="url" placeholder="https://tutienda.com/producto"></label>
+        <label class="f">ID de tu página de Facebook <span class="h">opcional, para publicar como tu página</span><input id="metaPage" inputmode="numeric" placeholder="ej. 104567891234567"></label>
+      </div>
+      <div class="plan" id="metaPlan"></div>
+      <div class="btns"><button class="btn primary" id="metaDl">Descargar archivo para Meta (.csv)</button></div>
+      <p class="small" id="metaMsg" role="status" hidden></p>
+      <details>
+        <summary>Cómo importarlo</summary>
+        <ol class="steps">
+          <li>Abre el <b>Administrador de anuncios</b> en el computador y busca el botón <b>Importar/Exportar</b> (el ícono de la hoja con flecha; si no lo ves, está en <b>Más</b>) → <b>Importar anuncios en bloque</b>.</li>
+          <li>Sube el archivo .csv y revisa el resumen que muestra Meta antes de confirmar.</li>
+          <li>En cada conjunto de anuncios elige tu <b>píxel</b> y el evento <b>Compra</b> (el archivo no puede traerlos porque son propios de tu cuenta).</li>
+          <li>En cada anuncio sube el <b>video o imagen</b> de ese ángulo. Los nombres de archivo sugeridos vienen en la columna Image.</li>
+          <li>Revisa textos y enlace, y activa la campaña. Aplica las reglas de la sección anterior para apagar o escalar.</li>
+        </ol>
+      </details>
     </section>
   </div>
 
@@ -784,10 +812,76 @@ async function budgetSweep(P,S,Ms,prog){
     ["warn","Escala de a poco",winning?`Si el CPA queda por debajo de ${fmt$(Math.round(c0*.7))}, sube el presupuesto 20–30 % cada 2 o 3 días hasta llegar a ${fmt$(rec.b)}/día. Subirlo de golpe reinicia el aprendizaje del anuncio y encarece las ventas.`:"No pases de la fase de prueba hasta que tus números reales muestren un CPA por debajo del de equilibrio."],
     ["warn","Cuida la caja",`Con contraentrega el recaudo llega días después de la entrega: ten disponible ${fmt$(capital)} para no quedarte sin plata para anuncios mientras te pagan.`]];
   $("#budRules").innerHTML=rules.map(([l,t,d])=>`<li><span class="ic ${l}">${{ok:"✓",warn:"!",bad:"✕"}[l]}</span><span><b>${t}</b><span class="muted">${d}</span></span></li>`).join("");
+  last.bud={testDay,testDays,c0,rec:rec.b,winning};renderMeta();
   const btn=$("#budUse");btn.hidden=!winning||rec.b===P.budget;
   btn.textContent=`Usar ${fmt$(rec.b)}/día en el formulario`;btn.dataset.v=rec.b;
 }
 $("#budUse").addEventListener("click",e=>{$("#presupuesto").value=e.target.dataset.v;e.target.textContent="Listo: vuelve a simular para ver el resultado";e.target.disabled=true;setTimeout(()=>{e.target.disabled=false},1500)});
+
+/* ---------- archivo de importación para Meta Ads Manager ----------
+   Columnas y valores según la plantilla oficial de importación/exportación de Meta
+   (facebook.com/business/help/1471948569691450). Píxel, evento y medios se eligen después en Ads Manager. */
+const META_COLS=["Campaign Name","Campaign Status","Campaign Objective","Buying Type","Campaign Spend Limit",
+  "Ad Set Name","Ad Set Status","Ad Set Daily Budget","Countries","Age Min","Age Max","Optimization Goal","Billing Event",
+  "Ad Name","Ad Status","Creative Type","Link Object ID","Title","Body","Link Description","Link","Display Link","Image","URL Tags"];
+const cut=(t,n)=>{t=String(t).trim().replace(/\s+/g," ");if(t.length<=n)return t;const w=t.slice(0,n+1).lastIndexOf(" ");return (w>n*.5?t.slice(0,w):t.slice(0,n)).replace(/[\s|·,.-]+$/,"")};
+const slug=t=>String(t).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"producto";
+function metaPlan(){
+  if(!last||!last.bud)return null;
+  const {P,res}=last,B=last.bud;
+  // edades donde se concentraron los compradores en la simulación
+  const byAge=res.reduce((a,x)=>a.map((v,j)=>v+x.byAge[j]),[0,0,0,0,0]);
+  const amin=Math.max(18,P.ageMin),amax=Math.min(64,P.ageMax);
+  const segs=AGE_B.map((b,j)=>({lo:Math.max(b[0],amin),hi:Math.min(b[1],amax),v:byAge[j]})).filter(s=>s.lo<s.hi&&s.v>0).sort((a,b)=>b.v-a.v).slice(0,2);
+  const tot=byAge.reduce((a,b)=>a+b,0)||1;
+  const sets=[{name:`Amplio ${amin}-${amax}`,lo:amin,hi:amax,why:"Toda la edad objetivo: Meta busca a los compradores"},
+    ...segs.map(s=>({name:`Edad ${s.lo}-${s.hi}`,lo:s.lo,hi:s.hi,why:`${pct(s.v/tot)} de las compras simuladas`}))];
+  const perSet=Math.max(10000,Math.round(B.testDay/sets.length/1000)*1000);
+  const name=P.name,short=cut(name,25);
+  const offer=P.p2>0?` o lleva 2 por ${fmt$(P.p2)}`:"";
+  const ads=[
+    {angle:"Problema",title:short,body:`¿Te pasa seguido? ${name} es la solución práctica que estabas buscando. Fácil de usar y lo notas desde el primer día.\nPaga al recibir · Envío a toda Colombia.`},
+    {angle:"Oferta",title:cut(P.p2>0?`Lleva 2 por ${fmtC(P.p2)}`:`Solo ${fmtC(P.price)}`,25),body:`${name} a ${fmt$(P.price)}${offer}. Pagas cuando lo recibes en tu casa. Envío a toda Colombia. Unidades limitadas.`},
+    {angle:"Prueba social",title:"Paga al recibir",body:`Lo están pidiendo en todo el país: ${name}. Míralo funcionando en el video y pídelo hoy. Pagas cuando te llegue.`}];
+  return {P,B,sets,perSet,ads,camp:cut(`Prueba | ${name}`,35),spendLimit:B.testDay*B.testDays};
+}
+function renderMeta(){
+  const m=metaPlan();if(!m)return;
+  $("#metaPlan").innerHTML=`<div class="lvl"><b>Campaña: ${esc(m.camp)}</b><span>Objetivo Ventas · Subasta · límite de gasto ${fmt$(m.spendLimit)} (${m.B.testDays} días de prueba) · en pausa</span></div>`+
+    m.sets.map(s=>`<div class="lvl l2"><b>Conjunto: ${esc(s.name)}</b><span>Colombia · ${s.lo}–${s.hi} años · ${fmt$(m.perSet)}/día · ${esc(s.why)}</span><span>3 anuncios: ${m.ads.map(a=>esc(a.angle)).join(", ")}</span></div>`).join("")+
+    `<span class="muted small">${m.sets.length*m.ads.length} anuncios en total. Presupuesto de prueba: ${fmt$(m.perSet*m.sets.length)}/día entre los ${m.sets.length} conjuntos.${m.B.winning?"":" Ojo: la simulación no recomienda escalar este producto; usa esta campaña solo para validarlo."}</span>`;
+}
+function metaCSV(m,link,page){
+  const q=v=>`"${String(v??"").replace(/"/g,'""')}"`,rows=[META_COLS.map(q).join(",")];
+  let host="";try{host=new URL(link).hostname.replace(/^www\./,"")}catch(_){}
+  const tags=`utm_source=facebook&utm_medium=paid&utm_campaign=${slug(m.P.name)}&utm_content={{ad.name}}`;
+  for(const st of m.sets)for(const a of m.ads){
+    const r={"Campaign Name":m.camp,"Campaign Status":"Paused","Campaign Objective":"Sales","Buying Type":"Auction","Campaign Spend Limit":m.spendLimit.toFixed(2),
+      "Ad Set Name":cut(`${st.name} | ${m.P.name}`,35),"Ad Set Status":"Paused","Ad Set Daily Budget":m.perSet.toFixed(2),"Countries":"CO","Age Min":st.lo,"Age Max":st.hi,
+      "Optimization Goal":"OFFSITE_CONVERSIONS","Billing Event":"IMPRESSIONS",
+      "Ad Name":cut(`${a.angle} | ${st.name}`,35),"Ad Status":"Off","Creative Type":page?"Page post ad":"","Link Object ID":page||"",
+      "Title":a.title,"Body":a.body,"Link Description":"Pago contraentrega · Envío nacional","Link":link,"Display Link":host,
+      "Image":`${slug(m.P.name)}-${slug(a.angle)}.jpg`,"URL Tags":tags};
+    rows.push(META_COLS.map(c=>q(r[c])).join(","));
+  }
+  return rows.join("\r\n")+"\r\n";
+}
+async function saveFile(filename,data){
+  const dl=window.claude&&window.claude.use?await window.claude.use("downloads").catch(()=>null):null;
+  if(dl)return dl.save({filename,data});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv;charset=utf-8"}));a.download=filename;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);return {status:"saved"};
+}
+function metaMsg(t,bad){$("#metaMsg").textContent=t;$("#metaMsg").className="small"+(bad?" neg":" pos");$("#metaMsg").hidden=!t}
+$("#metaDl").addEventListener("click",async()=>{
+  const m=metaPlan();if(!m){metaMsg("Primero simula el producto.",true);return}
+  const link=$("#metaLink").value.trim(),page=$("#metaPage").value.replace(/\D/g,"");
+  if(!/^https?:\/\/[^\s.]+\.[^\s]+/.test(link)){metaMsg("Pon el enlace completo de tu página de venta, empezando por https://",true);$("#metaLink").focus();return}
+  try{localStorage.setItem("simulador-meta",JSON.stringify({link,page}))}catch(_){}
+  try{await saveFile(`meta-ads-${slug(m.P.name)}.csv`,metaCSV(m,link,page));metaMsg("Archivo listo. Sigue los pasos de \"Cómo importarlo\".")}
+  catch(e){if(e&&e.code==="declined")metaMsg("");else metaMsg("No se pudo descargar el archivo en esta vista ("+(e&&e.code||"error")+").",true)}
+});
+try{const v=JSON.parse(localStorage.getItem("simulador-meta")||"{}");if(v.link)$("#metaLink").value=v.link;if(v.page)$("#metaPage").value=v.page}catch(_){}
 
 /* ---------- gráficos (canvas, sin librerías para funcionar sin internet) ---------- */
 function prepCanvas(cv){
