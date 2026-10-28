@@ -114,6 +114,10 @@ td.r,th.r{text-align:right}
 .ic.ok{background:var(--pos)} .ic.warn{background:var(--warn)} .ic.bad{background:var(--neg)}
 .dayctl{display:flex;gap:10px;align-items:center}
 .dayctl input{flex:1;accent-color:var(--accent)}
+.note{background:var(--soft);border-radius:14px;padding:10px 12px;font-size:.84rem}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.pill.on{background:color-mix(in srgb,var(--pos) 16%,transparent);color:var(--pos)}
+.sub{font-size:.74rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 </style>
 </head>
 <body>
@@ -143,12 +147,28 @@ td.r,th.r{text-align:right}
   </section>
 
   <section class="card">
-    <h2>2 · Atractivo del producto <span class="muted small">(1 a 10, sé honesto)</span></h2>
+    <h2>2 · Oferta y ticket promedio</h2>
+    <p class="muted small">Deja en blanco lo que no ofreces. Un combo sube el valor de cada pedido y el flete y el riesgo de rechazo se pagan una sola vez.</p>
+    <div class="grid">
+      <label class="f">Precio llevando 2 unidades<input id="precio2" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 149900"></label>
+      <label class="f">Precio llevando 3 unidades<input id="precio3" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 199900"></label>
+    </div>
+    <span class="sub">Producto adicional (upsell)</span>
+    <div class="grid">
+      <label class="f">Precio del adicional<input id="upPrecio" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 19900"></label>
+      <label class="f">Costo del adicional<input id="upCosto" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 5000"></label>
+      <label class="f">% de clientes que lo agrega<input id="upTasa" type="number" min="0" max="100" value="15"></label>
+    </div>
+    <p class="note" id="offerTxt"></p>
+  </section>
+
+  <section class="card">
+    <h2>3 · Atractivo del producto <span class="muted small">(1 a 10, sé honesto)</span></h2>
     <div class="grid" id="sliders"></div>
   </section>
 
   <section class="card">
-    <h2>3 · Campaña de anuncios</h2>
+    <h2>4 · Campaña de anuncios</h2>
     <div class="grid">
       <label class="f">Presupuesto diario<input id="presupuesto" type="number" inputmode="numeric" min="0" step="1000" value="150000"></label>
       <label class="f">CPM (costo por 1.000 impresiones)<input id="cpm" type="number" inputmode="numeric" min="1" step="100" value="9000"></label>
@@ -164,7 +184,7 @@ td.r,th.r{text-align:right}
 
   <section class="card">
     <details>
-      <summary>4 · Avanzado y calibración con datos reales</summary>
+      <summary>5 · Avanzado y calibración de este producto</summary>
       <div class="grid" style="margin-top:14px">
         <label class="f">Audiencia alcanzable (personas)<input id="mercado" type="number" min="10000" step="10000" value="1500000"></label>
         <label class="f">Agentes simulados<select id="agentes"><option value="2000">2.000 (rápido)</option><option value="4000" selected>4.000</option><option value="8000">8.000 (preciso)</option></select></label>
@@ -244,12 +264,32 @@ td.r,th.r{text-align:right}
   </section>
 
   <section class="card">
+    <div class="row"><h2>Aprender de tus ventas reales</h2><span class="pill" id="lrPill">Sin datos</span></div>
+    <p class="muted small">Cuando pruebes un producto de verdad, ten sus datos en el formulario de arriba (usa <b>Cargar</b> en la comparativa) y anota aquí lo que pasó. El simulador calcula lo que habría predicho con ese mismo gasto, lo compara con lo que vendiste y corrige sus supuestos para los próximos productos.</p>
+    <div class="grid">
+      <label class="f">Días que corrió la prueba<input id="lrDias" type="number" min="1" max="120" placeholder="ej. 5"></label>
+      <label class="f">Gasto total en anuncios<input id="lrGasto" type="number" inputmode="numeric" min="0" step="1000" placeholder="ej. 500000"></label>
+      <label class="f">Pedidos recibidos<input id="lrPedidos" type="number" min="0" placeholder="ej. 14"></label>
+      <label class="f">Clics al enlace <span class="h">opcional, mejora el ajuste</span><input id="lrClics" type="number" min="0" placeholder="ej. 820"></label>
+      <label class="f">CPM real <span class="h">opcional</span><input id="lrCpm" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 10500"></label>
+      <label class="f">Pedidos entregados <span class="h">opcional, para tu rechazo real</span><input id="lrEntregados" type="number" min="0" placeholder="ej. 10"></label>
+    </div>
+    <div class="btns"><button class="btn primary sm" id="lrAdd"></button></div>
+    <p class="neg small" id="lrErr" role="alert" hidden></p>
+    <div id="lrSummary" style="display:flex;flex-direction:column;gap:10px"></div>
+    <label class="chk"><input id="lrUse" type="checkbox" checked><span>Usar lo aprendido en las simulaciones (no aplica si pusiste CTR o conversión real en la sección 5)</span></label>
+    <div class="tw" id="lrTable"></div>
+  </section>
+
+  <section class="card">
     <details>
       <summary>¿Cómo funciona y qué tan confiable es?</summary>
       <div class="small" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
         <p><b>Sociedad sintética.</b> Se crean miles de agentes con edad, estrato (1–6), ingreso, interés por la categoría, sensibilidad al precio, impulsividad, preferencia por contraentrega e influencia social. Están conectados en una red social donde cada uno se relaciona con gente parecida (misma edad y estrato) y con algunos desconocidos.</p>
         <p><b>Cada día</b> tu presupuesto compra impresiones según el CPM. Los agentes del público ven el anuncio, algunos hacen clic (CTR según creativo, efecto WOW, interés y cansancio publicitario) y deciden comprar según un modelo de utilidad: interés + problema que resuelve + calidad + diferenciación − competencia + valor percibido frente al precio − cuánto pesa el precio en su ingreso. Los compradores generan <b>voz a voz</b> en su red y prueba social en los comentarios; los insatisfechos dejan malas reseñas que frenan las ventas.</p>
         <p><b>Finanzas reales de e-commerce:</b> rechazos de contraentrega (pagas flete de ida y vuelta), devoluciones, comisiones, costo del producto, anuncios y costos fijos.</p>
+        <p><b>Ofertas.</b> Con precios por 2 y 3 unidades el simulador estima qué parte de los clientes elige cada opción según el descuento por unidad, y calcula el ticket promedio. El flete, el rechazo y la comisión se calculan por pedido, por eso un combo suele mejorar mucho el margen.</p>
+        <p><b>Aprendizaje.</b> Cada resultado real se compara con lo que el simulador habría predicho con el mismo gasto. La diferencia en clics y en compras por clic se promedia entre todas tus pruebas (las de más pedidos pesan más) y corrige las simulaciones siguientes. También corrige tu forma de calificar: si sueles calificar con nota alta, el ajuste lo compensa.</p>
         <p><b>Monte Carlo.</b> Como nadie sabe de antemano el CTR o la conversión exactos, la simulación se repite muchas veces variando esos supuestos. Así obtienes una probabilidad de ganar plata, no un único número.</p>
         <p><b>Límites.</b> Es una aproximación para filtrar productos y comparar ideas, no una garantía. Los números absolutos dependen de que tus calificaciones (1–10) sean honestas. Lo más útil: compara varios productos con los mismos criterios, y luego valida los mejores con una prueba real pequeña y vuelve a simular con tu CTR y conversión reales.</p>
       </div>
@@ -311,18 +351,55 @@ $("#sliders").innerHTML=SLIDERS.map(([id,n,v,h])=>
   `<label class="sl"><span>${n}</span><b id="${id}V">${v}</b><input id="${id}" type="range" min="1" max="10" value="${v}"><span class="h">${h}</span></label>`).join("");
 SLIDERS.forEach(([id])=>$("#"+id).addEventListener("input",e=>$("#"+id+"V").textContent=e.target.value));
 
+/* campo del modelo ↔ id del formulario; "s" texto, "b" casilla, número = escala (100 para porcentajes) */
+const FIELDS=[["name","nombre","s"],["cat","cat","s"],["price","precio"],["cost","costo"],["perceived","percibido"],["ship","flete"],
+  ["cod","cod",100],["rr","rechazo",100],["fee","comision",100],
+  ["p2","precio2"],["p3","precio3"],["upPrice","upPrecio"],["upCost","upCosto"],["upTake","upTasa",100],
+  ["wow","wow"],["prob","problema"],["qual","calidad"],["diff","diferencia"],["comp","competencia"],["crea","creativo"],
+  ["budget","presupuesto"],["cpm","cpm"],["days","dias"],["ageMin","edadMin"],["ageMax","edadMax"],["fixed","fijos"],
+  ["rep","recompra",100],["cycle","ciclo"],["autoscale","escalar","b"],
+  ["realCTR","ctrReal",100],["realCVR","cvrReal",100],["market","mercado"],["N","agentes"],["runs","corridas"]];
+const OPTIONAL=new Set(["p2","p3","upPrice","upCost","realCTR","realCVR"]);
 function readP(){
-  const g=id=>{const v=parseFloat(String($("#"+id).value).replace(",","."));return isFinite(v)?v:0};
-  return {name:$("#nombre").value.trim()||"Producto",cat:$("#cat").value,
-    price:g("precio"),cost:g("costo"),perceived:g("percibido"),ship:g("flete"),
-    cod:clamp(g("cod")/100,0,1),rr:clamp(g("rechazo")/100,0,.9),fee:clamp(g("comision")/100,0,.3),fixed:g("fijos"),
-    wow:g("wow"),prob:g("problema"),qual:g("calidad"),diff:g("diferencia"),comp:g("competencia"),crea:g("creativo"),
-    budget:g("presupuesto"),cpm:g("cpm"),days:Math.round(clamp(g("dias"),7,120)),
-    ageMin:g("edadMin"),ageMax:g("edadMax"),autoscale:$("#escalar").checked,
-    rep:clamp(g("recompra")/100,0,1),cycle:Math.round(clamp(g("ciclo"),1,120)),
-    realCTR:g("ctrReal")/100,realCVR:g("cvrReal")/100,
-    market:Math.max(1e4,g("mercado")),N:g("agentes"),runs:g("corridas")};
+  const P={};
+  for(const [k,id,t] of FIELDS){const el=$("#"+id);
+    if(t==="s")P[k]=el.value.trim();else if(t==="b")P[k]=el.checked;
+    else{const v=parseFloat(String(el.value).replace(",","."));P[k]=(isFinite(v)?v:0)/(t||1)}}
+  P.name=P.name||"Producto";
+  P.cod=clamp(P.cod,0,1);P.rr=clamp(P.rr,0,.9);P.fee=clamp(P.fee,0,.3);P.upTake=clamp(P.upTake,0,1);
+  P.days=Math.round(clamp(P.days,7,120));P.rep=clamp(P.rep,0,1);P.cycle=Math.round(clamp(P.cycle,1,120));P.market=Math.max(1e4,P.market);
+  return P;
 }
+function setForm(P){
+  for(const [k,id,t] of FIELDS){const el=$("#"+id),v=P[k];
+    if(t==="b"){el.checked=v!==false;continue}
+    if(t==="s"){if(v!=null)el.value=v;continue}
+    if(v==null||(OPTIONAL.has(k)&&!v)){if(OPTIONAL.has(k))el.value="";continue}
+    el.value=+(v*(t||1)).toFixed(4);
+  }
+  SLIDERS.forEach(([id])=>$("#"+id+"V").textContent=$("#"+id).value);
+  updateOffer();
+}
+
+/* ---------- oferta: qué parte de los clientes elige cada opción y cuánto deja cada pedido ---------- */
+function offer(P){
+  const d2=P.p2>0?1-P.p2/(2*P.price):0,d3=P.p3>0?1-P.p3/(3*P.price):0;
+  let s2=P.p2>0?(d2<=0?.02:clamp(.08+1.3*d2,.03,.55)):0,s3=P.p3>0?(d3<=0?.01:clamp(.03+.9*d3,.01,.35)):0;
+  if(s2+s3>.7){const k=.7/(s2+s3);s2*=k;s3*=k}
+  const s1=1-s2-s3,units=s1+2*s2+3*s3,up=P.upPrice>0?P.upTake:0;
+  return {s1,s2,s3,units,up,
+    aov:s1*P.price+s2*P.p2+s3*P.p3+up*P.upPrice,
+    cogs:units*P.cost+up*(P.upCost||0),
+    boost:Math.min(.35,.6*Math.max(d2,d3,0))}; // un combo atractivo también convence a más gente
+}
+function updateOffer(){
+  const P=readP(),o=offer(P),parts=[];
+  if(!(P.price>0)){$("#offerTxt").textContent="Pon el precio de venta para ver el ticket promedio.";return}
+  if(o.s2)parts.push(`${pct(o.s2)} lleva 2`);if(o.s3)parts.push(`${pct(o.s3)} lleva 3`);if(o.up)parts.push(`${pct(o.up)} agrega el adicional`);
+  $("#offerTxt").innerHTML=parts.length?`Ticket promedio estimado: <b>${fmt$(o.aov)}</b> (${num(o.units,2)} unidades por pedido). ${parts.join(" · ")}.`:
+    `Sin oferta: cada pedido es de <b>${fmt$(P.price)}</b>. Prueba un precio por 2 unidades para ver cuánto sube.`;
+}
+document.querySelectorAll("#precio,#costo,#precio2,#precio3,#upPrecio,#upCosto,#upTasa").forEach(el=>el.addEventListener("input",updateOffer));
 
 /* ---------- la sociedad ---------- */
 const FIRST=["Laura","Andrés","Valentina","Juan","Camila","Santiago","Daniela","Carlos","Natalia","Felipe","Paola","Sebastián","Luisa","Diego","Mariana","Jorge","Ana","Miguel","Sara","Julián","Alejandra","Óscar","Diana","Mateo"];
@@ -371,31 +448,32 @@ function utility(P,S,i,price){const t=terms(P,S,i,price);return -2.3+t.interes+t
 function econ(P,M){
   const vr=P.perceived>0?P.perceived/P.price:1;
   const dissat=clamp(.03+.022*(10-P.qual)+.12*Math.max(0,1/vr-1),.02,.6), ret=dissat*.35;
-  const cr=P.cod*clamp(P.rr*(M?M.rr:1),0,.9);
-  const c0=(1-cr)*((1-ret)*P.price*(1-P.fee)-P.cost+ret*P.cost*.5-ret*P.ship)-P.ship-cr*P.ship;
-  return {dissat,ret,cr,c0};
+  const cr=P.cod*clamp(P.rr*(M?M.rr:1),0,.9),o=offer(P);
+  const c0=(1-cr)*((1-ret)*o.aov*(1-P.fee)-o.cogs+ret*o.cogs*.5-ret*P.ship)-P.ship-cr*P.ship;
+  return {dissat,ret,cr,c0,aov:o.aov,cogs:o.cogs,boost:o.boost,units:o.units};
 }
 
 /* una corrida de la sociedad durante P.days días */
 function simulate(P,S,M,rec,refPrice){
   const N=S.N,K=S.K,w=P.market/N,days=P.days;
   const adopt=new Float32Array(N),talk=new Float32Array(N),freq=new Float32Array(N),U0=new Float32Array(N),tw=new Float32Array(N),ctrI=new Float32Array(N);
-  const {dissat,ret,cr,c0}=econ(P,M);
+  const {dissat,ret,cr,c0,aov,cogs,boost}=econ(P,M);
   let R=0,inT=0,sT=0,ctrN=0;
   for(let i=0;i<N;i++){
     const t=S.age[i]>=P.ageMin&&S.age[i]<=P.ageMax;
-    U0[i]=utility(P,S,i,P.price);
+    U0[i]=utility(P,S,i,P.price)+boost;
     tw[i]=(t?1:.08)*(.6+.8*S.int[i]);R+=tw[i]*w;
     ctrI[i]=.4+1.2*S.int[i];
-    if(t){inT++;ctrN+=ctrI[i];sT+=sig(refPrice?utility(P,S,i,refPrice):U0[i])}
+    if(t){inT++;ctrN+=ctrI[i];sT+=sig(refPrice?utility(P,S,i,refPrice)+boost:U0[i])}
   }
   inT=Math.max(1,inT);
-  const ctrBase=(P.realCTR>0?P.realCTR/(ctrN/inT):.002+.0016*(P.crea+P.wow)/2)*M.ctr;
-  const cvrMax=(P.realCVR>0?P.realCVR/(sT/inT):.08)*M.cvr;
+  // learnCtr / learnCvr: correcciones aprendidas de tus ventas reales (1 si no hay)
+  const ctrBase=(P.realCTR>0?P.realCTR/(ctrN/inT):(.002+.0016*(P.crea+P.wow)/2)*(P.learnCtr||1))*M.ctr;
+  const cvrMax=(P.realCVR>0?P.realCVR/(sT/inT):.08*(P.learnCvr||1))*M.cvr;
   const q=(.01+.15*Math.pow(P.wow/10,3)+.02*P.qual/10)*M.viral;
 
   const o={orders:[],spend:[],rev:[],profit:[],cum:[],org:0,adB:0,byEst:new Float64Array(6),byAge:new Float64Array(5),states:rec?[]:null};
-  let budget=P.budget,cumI=0,totO=0,totB=0,totU=0,cum=0,stopDay=0,peak=P.budget,sumRev=0,sumSpend=0,repO=0;
+  let clk=0,budget=P.budget,cumI=0,totO=0,totB=0,totU=0,cum=0,stopDay=0,peak=P.budget,sumRev=0,sumSpend=0,repO=0;
   const happy=[];
   for(let d=0;d<days;d++){
     const cpm=P.cpm*M.cpm*(1+.08*cumI/R);
@@ -408,7 +486,8 @@ function simulate(P,S,M,rec,refPrice){
       const imp=I*tw[i]/R;freq[i]+=imp;
       const s=sig(U0[i]+proof);
       const ctr=Math.min(.25,ctrBase*ctrI[i]/(1+freq[i]/3));
-      const pAd=Math.min(1,Math.min(1,imp*ctr)*cvrMax*s);
+      const ci=Math.min(1,imp*ctr);clk+=ci*rem*w;
+      const pAd=Math.min(1,ci*cvrMax*s);
       const b=i*K;let nb=0;for(let k=0;k<K;k++){const j=S.nb[b+k];nb+=talk[j]*S.infl[j]}
       const pOrg=Math.min(1,q*(.4*talk[i]+.6*nb*S.infN[i])*s*S.int[i]*(1-bad));
       const p=1-(1-pAd)*(1-pOrg);if(p<=0)continue;
@@ -422,8 +501,8 @@ function simulate(P,S,M,rec,refPrice){
     const orders=newB+rep;
     totB+=newB;totU+=newB*dissat;totO+=orders;o.org+=orgB;o.adB+=newB-orgB;repO+=rep;
     const rej=orders*cr,deliv=orders-rej,rt=deliv*ret,sold=deliv-rt;
-    const rev=sold*P.price,cogs=deliv*P.cost-rt*P.cost*.5,shipC=(orders+rej+rt)*P.ship,fees=rev*P.fee,spend=I>0?budget:0;
-    const prof=rev-cogs-shipC-fees-spend-P.fixed/30;
+    const rev=sold*aov,cogsD=deliv*cogs-rt*cogs*.5,shipC=(orders+rej+rt)*P.ship,fees=rev*P.fee,spend=I>0?budget:0;
+    const prof=rev-cogsD-shipC-fees-spend-P.fixed/30;
     cum+=prof;sumRev+=rev;sumSpend+=spend;
     o.orders.push(orders);o.spend.push(spend);o.rev.push(rev);o.profit.push(prof);o.cum.push(cum);
     // para el mapa: cada punto pinta un estado al azar (fijo por agente) con la probabilidad esperada en su grupo
@@ -437,13 +516,13 @@ function simulate(P,S,M,rec,refPrice){
       peak=Math.max(peak,budget);
     }
   }
-  return Object.assign(o,{profit:cum,rev:sumRev,spend:sumSpend,totO,totB,repO,c0,dissat,ret,cr,stopDay,peak,
+  return Object.assign(o,{clicks:clk,profit:cum,rev:sumRev,spend:sumSpend,totO,totB,repO,c0,dissat,ret,cr,stopDay,peak,
     roas:sumSpend>0?sumRev/sumSpend:0,cpa:totO>0?sumSpend/totO:Infinity,orgShare:totB>0?o.org/totB:0,avgFreq:cumI/R});
 }
 
 function drawMults(n,seed,P){
-  const r=rng(seed),cal=P.realCTR>0,calv=P.realCVR>0,out=[];
-  for(let k=0;k<n;k++)out.push({ctr:Math.exp((cal?.08:.3)*gauss(r)),cvr:Math.exp((calv?.1:.35)*gauss(r)),
+  const r=rng(seed),cal=P.realCTR>0,calv=P.realCVR>0,out=[],sh=Math.max(.5,1/Math.sqrt(1+(P.learnN||0)/2));
+  for(let k=0;k<n;k++)out.push({ctr:Math.exp((cal?.08:.3*sh)*gauss(r)),cvr:Math.exp((calv?.1:.35*sh)*gauss(r)),
     cpm:Math.exp(.2*gauss(r)),viral:Math.exp(.5*gauss(r)),rr:Math.exp(.2*gauss(r))});
   return out;
 }
@@ -453,7 +532,7 @@ let last=null,socAnim=null;
 $("#run").addEventListener("click",run);
 
 async function run(){
-  const P=readP();
+  const P=applyLearning(readP());
   if(!(P.price>0)||!(P.cpm>0)){alert("Revisa el precio y el CPM.");return}
   if(P.ageMin>=P.ageMax){alert("La edad mínima debe ser menor que la máxima.");return}
   const btn=$("#run"),bar=$("#prog i");btn.disabled=true;$("#prog").hidden=false;
@@ -476,8 +555,8 @@ async function run(){
 function scoreOf(P,res){
   const pProfit=res.filter(x=>x.profit>0).length/res.length;
   const e=econ(P);
-  const roas=median(res.map(x=>x.roas)),beRoas=e.c0>0?P.price/e.c0:Infinity;
-  const margin=(P.price-P.cost-P.ship)/P.price,org=median(res.map(x=>x.orgShare));
+  const roas=median(res.map(x=>x.roas)),beRoas=e.c0>0?e.aov/e.c0:Infinity;
+  const margin=(e.aov-e.cogs-P.ship)/e.aov,org=median(res.map(x=>x.orgShare));
   const score=Math.round(100*(.45*pProfit+.25*clamp((roas/beRoas-.6)/1,0,1)+.15*clamp((margin-.2)/.4,0,1)+.15*clamp(org/.35,0,1)));
   return {pProfit,roas,beRoas,margin,org,score,e};
 }
@@ -492,13 +571,15 @@ function renderResults(){
   $("#gauge").style.setProperty("--v",sc.score);$("#gauge").style.setProperty("--vc",col);
   $("#score").textContent=sc.score;$("#label").textContent=lab;
   const profits=res.map(x=>x.profit),p10=quant(profits,.1),p50=median(profits),p90=quant(profits,.9);
-  $("#summary").innerHTML=`En <b>${pct(sc.pProfit)}</b> de ${res.length} escenarios simulados terminas con ganancia en ${P.days} días. Escenario típico: <b class="${p50>=0?"pos":"neg"}">${fmt$(p50)}</b> (pesimista ${fmtC(p10)} · optimista ${fmtC(p90)}).`;
+  $("#summary").innerHTML=`En <b>${pct(sc.pProfit)}</b> de ${res.length} escenarios simulados terminas con ganancia en ${P.days} días. Escenario típico: <b class="${p50>=0?"pos":"neg"}">${fmt$(p50)}</b> (pesimista ${fmtC(p10)} · optimista ${fmtC(p90)}).`+
+    (P.learnN?` <span class="pill on">Ajustado con ${P.learnN} prueba${P.learnN>1?"s":""} real${P.learnN>1?"es":""}</span>`:"");
   const orders=median(res.map(x=>x.totO)),cpa=median(res.map(x=>x.cpa)),spend=median(res.map(x=>x.spend));
   const tiles=[
     ["Pedidos",Math.round(orders).toLocaleString("es-CO"),`${num(orders/P.days)} por día`],
     ["CPA esperado",isFinite(cpa)?fmt$(cpa):"—",`Equilibrio: ${sc.e.c0>0?fmt$(sc.e.c0):"sin margen"}`],
     ["ROAS",num(sc.roas,2),`Necesitas ${isFinite(sc.beRoas)?num(sc.beRoas,2):"∞"} para no perder`],
     ["Inversión en anuncios",fmtC(spend),R.stopDay?`Campaña apagada el día ${R.stopDay}`:`Presupuesto máx. ${fmtC(R.peak)}/día`],
+    ["Ticket promedio",fmt$(sc.e.aov),`${num(sc.e.units,2)} unidades por pedido`],
     ["Margen bruto",pct(sc.margin),`Precio ${num(P.price/Math.max(1,P.cost),1)}× el costo`],
     ["Ventas por voz a voz",pct(sc.org),"Compras sin pagar anuncio"]
   ];
@@ -568,6 +649,11 @@ function renderDiag(){
   if(dis>.15)add("warn","Riesgo de malas reseñas",`Se estima ${pct(dis)} de clientes insatisfechos, lo que frena la prueba social y genera devoluciones.`);
   if(last.R.avgFreq>.6)add("warn","Cansancio publicitario","Tu audiencia ve el anuncio muchas veces: renueva creativos cada 5–7 días o amplía el público.");
   if(P.comp>=8)add("warn","Mercado saturado","Si todos lo venden, compites por precio. Cambia el ángulo, haz un kit o una oferta 2×1.");
+  if(!(P.p2>0)&&!(P.p3>0)&&!(P.upPrice>0)){
+    const p2=Math.round(P.price*1.6/100)*100,a=econ(P).c0,b=econ({...P,p2}).c0,sh=offer({...P,p2}).s2;
+    if(b>a)add("warn","Agrega una oferta de 2 unidades",`Por ejemplo 2 por ${fmt$(p2)}: se estima que ${pct(sh)} la elegiría y lo que te deja cada pedido pasaría de ${fmt$(a)} a ${fmt$(b)}, porque el flete y el riesgo de rechazo se pagan una sola vez.`);
+  }else{const e0=econ({...P,p2:0,p3:0,upPrice:0}).c0,e1=sc.e.c0;
+    if(e1>e0)add("ok","La oferta sube tu margen",`Cada pedido deja ${fmt$(e1)} antes de anuncios, frente a ${fmt$(e0)} vendiendo una sola unidad.`)}
   const rank={bad:0,warn:1,ok:2};out.sort((a,b)=>rank[a[0]]-rank[b[0]]);
   const sym={ok:"✓",warn:"!",bad:"✕"};
   $("#diag").innerHTML=out.map(([l,t,d])=>`<li><span class="ic ${l}" aria-label="${l}">${sym[l]}</span><span><b>${t}</b><span class="muted">${d}</span></span></li>`).join("");
@@ -579,7 +665,7 @@ async function priceSweep(P,S,Ms,prog){
   const f=[];for(let x=.6;x<=1.81;x+=.1)f.push(+x.toFixed(2));
   const runs=Math.min(12,Ms.length),pts=[];
   for(let k=0;k<f.length;k++){
-    const P2={...P,price:Math.round(P.price*f[k]/100)*100},pr=[];
+    const P2={...P,price:Math.round(P.price*f[k]/100)*100,p2:P.p2*f[k],p3:P.p3*f[k]},pr=[];
     for(let j=0;j<runs;j++)pr.push(simulate(P2,S,Ms[j],false,P.price).profit);
     pts.push([P2.price,median(pr)]);prog((k+1)/f.length);await tick();
   }
@@ -621,7 +707,7 @@ function lineChart(cv,c){
     if(y0<0&&y1>0){g.strokeStyle=css("--muted");g.beginPath();g.moveTo(L,Y(0));g.lineTo(w-Rr,Y(0));g.stroke()}
     g.textAlign="center";g.textBaseline="top";
     const step=Math.max(1,Math.ceil(xs.length/6));
-    for(let i=0;i<xs.length;i+=step)g.fillText(c.fx(xs[i]),X(i),h-B+8);
+    for(let i=0;i<xs.length;i+=step){g.textAlign=X(i)>w-Rr-30?"right":X(i)<L+30?"left":"center";g.fillText(c.fx(xs[i]),X(i),h-B+8)}
     const acc=css("--accent");
     if(c.lo){g.fillStyle=acc;g.globalAlpha=.16;g.beginPath();
       c.hi.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));
@@ -704,18 +790,90 @@ function renderCmp(){
   $("#cmp").innerHTML=L.length?`<table><tr><th>Producto</th><th class="r">Puntaje</th><th class="r">Prob. ganar</th><th class="r">Utilidad típica</th><th class="r">ROAS</th><th></th></tr>`+
     L.map(x=>`<tr><td>${esc(x.name)}<div class="muted small">${esc(x.label)} · ${fmt$(x.price)}</div></td><td class="r"><b>${x.score}</b></td><td class="r">${pct(x.p)}</td>
       <td class="r ${x.profit>=0?"pos":"neg"}">${fmtC(x.profit)}</td><td class="r">${num(x.roas,2)}</td>
-      <td class="r"><button class="btn sm" data-del="${x.id}" aria-label="Borrar ${esc(x.name)}">✕</button></td></tr>`).join("")+`</table>`
+      <td class="r" style="white-space:nowrap">${x.P?`<button class="btn sm" data-load="${x.id}">Cargar</button> `:""}<button class="btn sm" data-del="${x.id}" aria-label="Borrar ${esc(x.name)}">✕</button></td></tr>`).join("")+`</table>`
     :`<p class="muted small">Simula varios productos y guárdalos aquí para ver cuál conviene más.</p>`;
 }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-$("#cmp").addEventListener("click",e=>{const id=e.target.dataset.del;if(!id)return;store(load().filter(x=>String(x.id)!==id));renderCmp()});
+$("#cmp").addEventListener("click",e=>{const {del,load:ld}=e.target.dataset;
+  if(del){store(load().filter(x=>String(x.id)!==del));renderCmp()}
+  if(ld){const x=load().find(x=>String(x.id)===ld);if(x&&x.P){setForm(x.P);renderLearn();scrollTo({top:0,behavior:"smooth"})}}});
 $("#save").addEventListener("click",()=>{
   if(!last)return;const {P,res,sc}=last;
   const L=load().filter(x=>x.name!==P.name);
-  L.push({id:Date.now(),name:P.name,price:P.price,score:sc.score,label:labelOf(sc.score)[0],p:sc.pProfit,profit:median(res.map(x=>x.profit)),roas:sc.roas});
+  const {learnCtr,learnCvr,learnN,...inputs}=P;
+  L.push({id:Date.now(),P:inputs,name:P.name,price:P.price,score:sc.score,label:labelOf(sc.score)[0],p:sc.pProfit,profit:median(res.map(x=>x.profit)),roas:sc.roas});
   store(L);renderCmp();$("#save").textContent="Guardado ✓";setTimeout(()=>$("#save").textContent="Guardar en comparativa",1500);
 });
 renderCmp();
+
+/* ---------- aprender de tus ventas reales (localStorage) ---------- */
+const LKEY="simulador-aprendizaje";
+const lload=()=>{try{const v=JSON.parse(localStorage.getItem(LKEY)||"{}");return {use:v.use!==false,recs:Array.isArray(v.recs)?v.recs:[]}}catch(e){return {use:true,recs:[]}}};
+const lstore=v=>{try{localStorage.setItem(LKEY,JSON.stringify(v))}catch(e){}};
+
+/* correcciones: promedio geométrico de real/predicho, ponderado por pedidos y encogido hacia 1 cuando hay pocos datos */
+function learned(recs){
+  const shrink=(xs)=>{let a=0,w=0;xs.forEach(([r,wt])=>{a+=wt*Math.log(clamp(r,.05,20));w+=wt});return clamp(Math.exp(a/(w+2)),.1,10)};
+  const wt=r=>Math.sqrt(Math.max(1,r.orders));
+  const withC=recs.filter(r=>r.clicks>0&&r.pred.clicks>0);
+  const ctr=withC.length?shrink(withC.map(r=>[r.clicks/r.pred.clicks,wt(r)])):1;
+  const cvr=recs.length?shrink(recs.map(r=>{const ro=Math.max(.5,r.orders)/Math.max(.5,r.pred.orders);
+    return [r.clicks>0&&r.pred.clicks>0?ro/(r.clicks/r.pred.clicks):ro/ctr,wt(r)]})):1;
+  const dl=recs.filter(r=>r.delivered>0&&r.orders>0),O=dl.reduce((a,r)=>a+r.orders,0);
+  const rej=O?1-dl.reduce((a,r)=>a+r.delivered,0)/O:null;
+  return {n:recs.length,ctr,cvr,total:ctr*cvr,rej};
+}
+function applyLearning(P){
+  const L=lload();
+  if(!L.use||!L.recs.length||P.realCTR>0||P.realCVR>0)return P;
+  const f=learned(L.recs);return {...P,learnCtr:f.ctr,learnCvr:f.cvr,learnN:f.n};
+}
+function renderLearn(){
+  const L=lload(),f=learned(L.recs),name=$("#nombre").value.trim()||"Producto";
+  $("#lrAdd").textContent=`Agregar resultado real de "${name}"`;
+  $("#lrUse").checked=L.use;
+  $("#lrPill").textContent=f.n?`${f.n} prueba${f.n>1?"s":""} · confianza ${f.n<2?"baja":f.n<5?"media":"alta"}`:"Sin datos";
+  $("#lrPill").classList.toggle("on",f.n>0&&L.use);
+  if(!f.n){$("#lrSummary").innerHTML=`<p class="note">Todavía no hay resultados reales. Con 2 o 3 productos probados el ajuste empieza a ser útil.</p>`;$("#lrTable").innerHTML="";return}
+  const x=v=>num(v,2)+"×",dir=v=>v<.95?"menos":v>1.05?"más":"casi lo mismo";
+  const tiles=[["Clics frente a lo predicho",x(f.ctr),f.ctr===1?"Agrega clics para medirlo":`Tus anuncios reciben ${dir(f.ctr)}${f.ctr<.95||f.ctr>1.05?" clics":""}`],
+    ["Compras por clic",x(f.cvr),`Tu página convierte ${dir(f.cvr)}${f.cvr<.95||f.cvr>1.05?" de lo esperado":""}`],
+    ["Ventas en total",x(f.total),"Corrección que se aplica"]];
+  if(f.rej!=null)tiles.push(["Rechazo real",pct(f.rej),"De todos los pedidos"]);
+  let h=`<div class="tiles">${tiles.map(([k,v,s])=>`<div class="tile"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("")}</div>`;
+  h+=`<p class="small">Tus pruebas reales venden <b>${x(f.total)}</b> lo que predecía el simulador. ${L.use?"Las próximas simulaciones ya incluyen esta corrección y su rango de incertidumbre se reduce.":"La corrección está desactivada."}</p>`;
+  const P=readP();
+  if(f.rej!=null&&P.cod>0){const rr=clamp(f.rej/P.cod,0,.9);
+    if(Math.abs(rr-P.rr)>.03)h+=`<div class="btns"><button class="btn sm" id="lrRej" data-v="${Math.round(rr*100)}">Usar mi rechazo real (${pct(rr)} de contraentrega) en el formulario</button></div>`}
+  $("#lrSummary").innerHTML=h;
+  $("#lrTable").innerHTML=`<table><tr><th>Producto</th><th class="r">Gasto</th><th class="r">Pedidos reales</th><th class="r">Predichos</th><th class="r">Real / predicho</th><th></th></tr>`+
+    L.recs.map(r=>`<tr><td>${esc(r.name)}<div class="muted small">${esc(r.date)} · ${r.days} días</div></td><td class="r">${fmtC(r.spend)}</td><td class="r">${r.orders}</td>
+      <td class="r">${num(r.pred.orders,1)}</td><td class="r">${x(Math.max(.5,r.orders)/Math.max(.5,r.pred.orders))}</td>
+      <td class="r"><button class="btn sm" data-ldel="${r.id}" aria-label="Borrar resultado de ${esc(r.name)}">✕</button></td></tr>`).join("")+`</table>`;
+}
+$("#lrAdd").addEventListener("click",async()=>{
+  const g=id=>{const v=parseFloat(String($("#"+id).value).replace(",","."));return isFinite(v)?v:0};
+  const days=Math.round(g("lrDias")),spend=g("lrGasto"),orders=Math.round(g("lrPedidos")),clicks=Math.round(g("lrClics")),cpm=g("lrCpm"),delivered=Math.round(g("lrEntregados"));
+  const P=readP();
+  const err=!(P.price>0)?"Primero llena los datos del producto en el formulario.":days<1?"Pon cuántos días corrió la prueba.":!(spend>0)?"Pon cuánto gastaste en anuncios.":
+    !$("#lrPedidos").value?"Pon cuántos pedidos recibiste (puede ser 0).":delivered>orders?"Los entregados no pueden ser más que los pedidos.":"";
+  $("#lrErr").textContent=err;$("#lrErr").hidden=!err;if(err)return;
+  $("#lrAdd").disabled=true;$("#lrAdd").textContent="Calculando la predicción…";await tick();
+  try{
+    // lo que el simulador (sin correcciones) habría predicho con ese mismo gasto y días
+    const Q={...P,days,budget:spend/days,autoscale:false,cpm:cpm>0?cpm:P.cpm,fixed:0};
+    const r=simulate(Q,makeSociety(P.N,P.cat,12345),{ctr:1,cvr:1,cpm:1,viral:1,rr:1},false);
+    const L=lload();
+    L.recs.push({id:Date.now(),name:P.name,date:new Date().toLocaleDateString("es-CO"),days,spend,orders,clicks,delivered,cpm,
+      pred:{orders:r.totO,clicks:r.clicks}});
+    lstore(L);["lrDias","lrGasto","lrPedidos","lrClics","lrCpm","lrEntregados"].forEach(id=>$("#"+id).value="");
+  }finally{$("#lrAdd").disabled=false;renderLearn()}
+});
+$("#lrTable").addEventListener("click",e=>{const id=e.target.dataset.ldel;if(!id)return;const L=lload();L.recs=L.recs.filter(r=>String(r.id)!==id);lstore(L);renderLearn()});
+$("#lrSummary").addEventListener("click",e=>{if(e.target.id!=="lrRej")return;$("#rechazo").value=e.target.dataset.v;renderLearn()});
+$("#lrUse").addEventListener("change",e=>{const L=lload();L.use=e.target.checked;lstore(L);renderLearn()});
+$("#nombre").addEventListener("input",renderLearn);
+updateOffer();renderLearn();
 </script>
 </body>
 </html>
