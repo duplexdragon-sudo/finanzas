@@ -132,6 +132,9 @@ td.r,th.r{text-align:right}
 .funnel span{font-size:.7rem;color:var(--muted)}
 .funnel div:last-child{background:color-mix(in srgb,var(--pos) 14%,transparent)}
 .funnel div:last-child b{color:var(--pos)}
+.dirty{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  background:var(--card);border-top:1px solid var(--card-border);box-shadow:0 -6px 24px rgba(0,0,0,.12);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);font-size:.88rem}
 .engines{display:flex;flex-wrap:wrap;gap:8px}
 .eng{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--soft);font-size:.82rem;cursor:pointer}
 .eng input{accent-color:var(--accent);width:16px;height:16px;margin:0}
@@ -282,7 +285,7 @@ td.r,th.r{text-align:right}
         </div>
       </div>
       <div class="tiles" id="tiles"></div>
-      <div class="btns"><button class="btn sm" id="save">Guardar en comparativa</button></div>
+      <div class="btns"><button class="btn sm primary" id="recalc">↻ Recalcular</button><button class="btn sm" id="save">Guardar en comparativa</button></div>
     </section>
 
     <section class="card">
@@ -401,6 +404,7 @@ td.r,th.r{text-align:right}
     </details>
   </section>
 </main>
+<div class="dirty" id="dirtyBar" hidden role="status"><span>Cambiaste datos del producto o la campaña</span><button class="btn sm primary" id="dirtyRecalc">↻ Recalcular</button></div>
 
 <script>
 "use strict";
@@ -634,8 +638,15 @@ function drawMults(n,seed,P){
 
 /* ---------- orquestación ---------- */
 let last=null,socAnim=null;
-$("#run").addEventListener("click",run);
+$("#run").addEventListener("click",()=>{setDirty(false);run()});
+["#recalc","#dirtyRecalc"].forEach(s=>$(s).addEventListener("click",()=>{["#recalc","#dirtyRecalc"].forEach(x=>{$(x).disabled=true;$(x).textContent="Recalculando…"});recalc()}));
 
+/* recalcular: vuelve a simular con lo que hay en el formulario; el aviso fijo aparece si cambias datos después de simular */
+let dirty=false;
+function setDirty(v){dirty=v;$("#dirtyBar").hidden=!v||!last}
+document.addEventListener("input",e=>{if(last&&e.target.closest("section.card")&&!e.target.closest("#aiCard,#metaCard,#out")&&e.target.id&&FIELDS.some(f=>f[1]===e.target.id))setDirty(true)});
+document.addEventListener("change",e=>{if(last&&e.target.id&&FIELDS.some(f=>f[1]===e.target.id))setDirty(true)});
+async function recalc(){setDirty(false);await run();$("#out").scrollIntoView({behavior:"smooth",block:"start"})}
 async function run(){
   const P=applyLearning(readP());
   if(!(P.price>0)||!(P.cpm>0)){alert("Revisa el precio y el CPM.");return}
@@ -655,7 +666,8 @@ async function run(){
     await priceSweep(P,S,Ms,f=>setP(.6+.2*f));
     await budgetSweep(P,S,Ms,f=>setP(.8+.2*f));
     setP(1);
-  }finally{btn.disabled=false;btn.textContent="Simular sociedad";setTimeout(()=>$("#prog").hidden=true,400)}
+  }finally{btn.disabled=false;btn.textContent="Simular sociedad";setTimeout(()=>$("#prog").hidden=true,400);
+    ["#recalc","#dirtyRecalc"].forEach(s=>{$(s).disabled=false;$(s).textContent="↻ Recalcular"})}
 }
 
 function scoreOf(P,res){
@@ -1015,7 +1027,7 @@ function renderCmp(){
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("#cmp").addEventListener("click",e=>{const {del,load:ld}=e.target.dataset;
   if(del){store(load().filter(x=>String(x.id)!==del));renderCmp()}
-  if(ld){const x=load().find(x=>String(x.id)===ld);if(x&&x.P){setForm(x.P);renderLearn();scrollTo({top:0,behavior:"smooth"})}}});
+  if(ld){const x=load().find(x=>String(x.id)===ld);if(x&&x.P){setForm(x.P);renderLearn();setDirty(true);scrollTo({top:0,behavior:"smooth"})}}});
 $("#save").addEventListener("click",()=>{
   if(!last)return;const {P,res,sc}=last;
   const L=load().filter(x=>x.name!==P.name);
