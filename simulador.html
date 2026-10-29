@@ -185,6 +185,7 @@ td.r,th.r{text-align:right}
       <div class="engines" id="aiEngines"></div>
       <p class="note small" id="engHelp" hidden></p>
       <div class="in"><select id="aiCat" aria-label="Categoría donde buscar" style="flex:0 1 210px;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg)"></select><input id="aiQuery" placeholder="ej. que resuelvan un problema, entre 50 y 150 mil"><select id="aiTarget" aria-label="Productos a revisar" style="flex:0 1 170px;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg)"><option value="10000" selected>Revisar 10.000</option><option value="15000">Revisar 15.000</option><option value="20000">Revisar 20.000</option></select><button class="btn primary" id="aiSearch">Buscar ganadores</button></div>
+      <label class="chk small" style="margin-top:-4px"><input id="aiFresh" type="checkbox"><span>Volver a leer Mercado Libre (ignorar el catálogo guardado de las últimas 24 horas)</span></label>
       <div class="in"><input id="aiName" placeholder="¿Ya tienes uno en mente? ej. masajeador de cuello eléctrico"><button class="btn" id="aiFill">Completar datos</button></div>
       <div class="row" id="aiStatus" hidden><span class="small" id="aiStatusTxt" role="status"></span><button class="btn sm" id="aiStop">Detener</button></div>
       <p class="neg small" id="aiErr" role="alert" hidden></p>
@@ -1323,63 +1324,89 @@ const SEEDS={salud:["masajeador","corrector postura","tensiometro","faja lumbar"
   auto:["soporte celular carro","aspiradora carro","organizador carro","inflador llantas","camara reversa","cargador carro","ambientador carro","cubre volante","linterna","parasol carro"],
   juguetes:["juguete didactico","rompecabezas","bloques construccion","carro control remoto","plastilina","pista carros","muñeca","pizarra magnetica","burbujas","juego mesa"],
   oficina:["organizador escritorio","soporte portatil","lampara escritorio","agenda","pizarra","base monitor","cuaderno","silla ergonomica cojin","porta lapices","mouse pad"]};
-let catalog=null; // {key, items:Map, pages, failed, done}
-const normKey=n=>n.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(w=>w.length>2).slice(0,5).join(" ");
+let catalog=null; // {key, items:Map, pages, failed, web, seen, queue, terms, at, cached}
+const STOP=new Set("de del la el los las para con sin por en y o x a al un una unidades und pack set kit pcs piezas pzs color negro blanco gris azul rojo rosa verde morado amarillo beige cafe nuevo nueva original grande pequeno mini tipo modelo marca cm mm ml lt litros pulgadas".split(" "));
+const words=n=>String(n).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(w=>w.length>2&&!STOP.has(w)&&!/^\d/.test(w));
+const normKey=n=>words(n).slice(0,5).join(" ");
+const clusterKey=n=>words(n).slice(0,3).join(" ")||normKey(n);
 const slugify=t=>t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+/* memoria en el navegador (IndexedDB): el catálogo de cada búsqueda dura 24 h y las páginas bloqueadas se evitan 7 días */
+const DAY=864e5;
+const IDB={db:null,
+  async open(){if(!this.db)this.db=await new Promise((ok,no)=>{try{const r=indexedDB.open("simulador-catalogo",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)}catch(e){no(e)}});return this.db},
+  async get(k){try{const db=await this.open();return await new Promise(ok=>{const q=db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null)})}catch(e){return null}},
+  async set(k,v){try{const db=await this.open();await new Promise(ok=>{const t=db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=ok;t.onerror=ok;t.onabort=ok})}catch(e){}}};
 function scanUI(c,target){
   $("#aiScan").hidden=false;
   const n=c.items.size;$("#aiScanBar").style.width=Math.min(100,n/target*100)+"%";
-  $("#aiScanTxt").textContent=`Productos revisados: ${n.toLocaleString("es-CO")} de ${target.toLocaleString("es-CO")}`;
-  $("#aiScanPages").textContent=`${c.pages} páginas leídas · ${c.failed} bloqueadas`;
+  $("#aiScanTxt").textContent=c.cached?`Catálogo guardado hace ${Math.max(1,Math.round((Date.now()-c.at)/36e5))} h: ${n.toLocaleString("es-CO")} productos`
+    :`Productos revisados: ${n.toLocaleString("es-CO")} de ${target.toLocaleString("es-CO")}`;
+  $("#aiScanPages").textContent=`${c.pages} páginas · ${c.failed} bloqueadas · ${c.web.toLocaleString("es-CO")} de búsqueda web`;
 }
 async function seedTerms(q,cat){
   const base=cat!=="all"?SEEDS[cat]:Object.values(SEEDS).flat();
   let extra=[];
   try{
-    const r=await sampleFn.json(`Dame 60 búsquedas cortas (2 o 3 palabras, en español, sin marcas) de productos genéricos físicos que se venden en Mercado Libre Colombia${cat!=="all"?` en la categoría ${CATS[cat].n}`:""}${q?` relacionados con: "${q}"`:""}. Variadas, útiles para dropshipping con anuncios. Responde solo con un arreglo JSON de strings.`,{signal:aiCtl.signal,modelTier:"quick"});
+    const r=await sampleFn.json(`Dame 80 búsquedas cortas (2 o 3 palabras, en español, sin marcas) de productos genéricos físicos que se venden en Mercado Libre Colombia${cat!=="all"?` en la categoría ${CATS[cat].n}`:""}${q?` relacionados con: "${q}"`:""}. Variadas (no sinónimos de lo mismo), útiles para dropshipping con anuncios y contraentrega. Responde solo con un arreglo JSON de strings.`,{signal:aiCtl.signal,modelTier:"quick"});
     if(Array.isArray(r))extra=r.map(String);
   }catch(e){if(e&&e.code==="cancelled")throw e}
-  const words=[...(q?[q]:[]),...extra,...base].map(slugify).filter(x=>x.length>2);
-  return [...new Set(words)];
+  const w=[...(q?[q]:[]),...extra,...base].map(slugify).filter(x=>x.length>2);
+  return [...new Set(w)];
 }
-async function massScan(q,cat,target){
+async function massScan(q,cat,target,fresh){
   const key=q+"|"+cat;
-  if(catalog&&catalog.key===key&&catalog.items.size>=target)return catalog;
-  const c=catalog&&catalog.key===key?catalog:{key,items:new Map(),pages:0,failed:0,seen:new Set(),queue:[]};
-  catalog=c;
-  if(!c.queue.length){
+  if(!fresh&&catalog&&catalog.key===key&&catalog.items.size>=target)return catalog;
+  let c=!fresh&&catalog&&catalog.key===key?catalog:null;
+  if(!c&&!fresh){const sv=await IDB.get("cat:"+key);
+    if(sv&&Date.now()-sv.at<DAY){c={key,items:new Map(sv.items),pages:sv.pages,failed:sv.failed,web:sv.web||0,seen:new Set(sv.seen),queue:sv.queue||[],terms:sv.terms||[],at:sv.at,cached:true};
+      if(c.items.size>=target){catalog=c;scanUI(c,target);return c}}}
+  if(!c)c={key,items:new Map(),pages:0,failed:0,web:0,seen:new Set(),queue:[],terms:[],at:Date.now()};
+  c.cached=false;catalog=c;
+  const deadRec=(await IDB.get("dead"))||{},now=Date.now();
+  for(const u in deadRec)if(now-deadRec[u]>7*DAY)delete deadRec[u];
+  if(!c.queue.length&&!c.terms.length){
     aiBusy("Preparando las búsquedas en Mercado Libre…");
     const ml=cat!=="all"&&ML_CAT[cat]?[`${ML}/${ML_CAT[cat]}`]:[ML,...Object.values(ML_CAT).map(id=>`${ML}/${id}`)];
-    c.queue.push(...ml,...(await seedTerms(q,cat)).map(t=>"https://listado.mercadolibre.com.co/"+t));
+    const terms=await seedTerms(q,cat);
+    c.queue.push(...ml,...terms.map(t=>"https://listado.mercadolibre.com.co/"+t));
+    c.terms=terms.slice();
   }
-  const add=list=>{for(const p of list){const k=p.id||normKey(p.name);const o=c.items.get(k);
-    if(o){o.best=o.best||p.best;o.sold=Math.max(o.sold,p.sold);o.hits++}else c.items.set(k,{...p,hits:1})}};
-  const t0=Date.now(),BATCH=5,PAR=4;let empty=0;
+  const add=list=>{let n=0;for(const p of list){const k=p.id||normKey(p.name);const o=c.items.get(k);
+    if(o){o.best=o.best||p.best;o.sold=Math.max(o.sold,p.sold);o.ad=o.ad||p.ad;o.hits++}else{c.items.set(k,{...p,hits:1});n++}}return n};
+  const t0=Date.now(),BATCH=5,PAR=6;let empty=0;
   aiBusy("Revisando productos de Mercado Libre…");scanUI(c,target);
-  while(c.items.size<target&&c.queue.length&&!aiCtl.signal.aborted&&Date.now()-t0<20*60000&&empty<12){
+  while(c.items.size<target&&(c.queue.length||c.terms.length)&&!aiCtl.signal.aborted&&Date.now()-t0<20*60000&&empty<12){
     const jobs=[];
-    for(let j=0;j<PAR&&c.queue.length;j++){
-      const urls=[];while(urls.length<BATCH&&c.queue.length){const u=c.queue.shift();if(!c.seen.has(u)){c.seen.add(u);urls.push(u)}}
+    // una búsqueda web por ronda: segunda fuente de productos con precio
+    if(c.terms.length){const term=c.terms.shift().replace(/-/g," ");
+      jobs.push(callEngine("par","web_search",{objective:`Publicaciones de Mercado Libre Colombia de ${term} con su precio`,search_queries:[`site:mercadolibre.com.co ${term}`,`${term} mercadolibre colombia precio`],session_id:AI_SESSION}).then(r=>({r,web:true})));}
+    for(let j=jobs.length;j<PAR&&c.queue.length;j++){
+      const urls=[];while(urls.length<BATCH&&c.queue.length){const u=c.queue.shift();if(!c.seen.has(u)&&!deadRec[u]){c.seen.add(u);urls.push(u)}}
       if(urls.length)jobs.push(callEngine("par","web_fetch",{urls,full_content:true,allow_live_fetch:false,objective:"Productos con nombre y precio",session_id:AI_SESSION}).then(r=>({r,urls})));
     }
     if(!jobs.length)break;
     const done=await Promise.all(jobs);let got=0;
-    for(const {r,urls} of done){
-      if(r.skip||r.error){c.failed+=urls.length;if(r.skip)return c;continue}
+    for(const {r,urls,web} of done){
+      if(r.skip)return c;
+      if(r.error){if(urls)c.failed+=urls.length;continue}
       const res=(r.data&&r.data.results)||[];
-      c.failed+=urls.length-res.length;
+      if(web){for(const x of res){const n=add(mlParse((x.excerpts||[]).join("\n"),x.url));c.web+=n;got+=n}continue}
+      const ok=new Set();
       for(const x of res){
         const md=x.full_content||(x.excerpts||[]).join("\n"),items=mlParse(md,x.url);
-        if(items.length){c.pages++;got+=items.length;add(items)}else c.failed++;
+        if(items.length){c.pages++;got+=add(items);ok.add(x.url)}
         // más páginas para seguir: búsquedas relacionadas, categorías y subcategorías de más vendidos
         const more=[...md.matchAll(/https:\/\/listado\.mercadolibre\.com\.co\/[a-z0-9\-\/]+(?=[)\s"])/g)].map(m=>m[0].replace(/\/$/,""))
           .concat([...md.matchAll(/https:\/\/www\.mercadolibre\.com\.co\/mas-vendidos\/MCO\d+/g)].map(m=>m[0]));
-        for(const u of more)if(!c.seen.has(u)&&!/_Desde_|_NoIndex|\/_/.test(u))c.queue.push(u);
+        for(const u of more)if(!c.seen.has(u)&&!deadRec[u]&&!/_Desde_|_NoIndex|\/_/.test(u))c.queue.push(u);
       }
+      for(const u of urls)if(!ok.has(u)){c.failed++;deadRec[u]=now}
     }
     empty=got?0:empty+1;
     scanUI(c,target);await tick();
   }
+  IDB.set("dead",deadRec);
+  IDB.set("cat:"+key,{at:c.at,items:[...c.items],pages:c.pages,failed:c.failed,web:c.web,seen:[...c.seen].slice(-6000),queue:c.queue.slice(0,4000),terms:c.terms});
   return c;
 }
 /* puntaje de oportunidad: demanda comprobada y potencial para venderlo con anuncios y contraentrega */
@@ -1411,73 +1438,113 @@ function roughP(base,p,cat){
   const price=Math.round(p.price*1.25/100)*100,dup=p.hits||1;
   return {...base,name:p.name,cat:cat!=="all"?cat:guessCat(p.name,"hogar"),price,p2:Math.round(price*1.7/100)*100,p3:0,upPrice:0,upCost:0,
     cost:Math.round(p.price*.32),ship:12000,perceived:Math.max(p.old||0,p.price),wow:6,prob:6,qual:p.rating?Math.round(clamp(p.rating*2-3,4,8)):5,
-    diff:5,comp:Math.round(clamp(4+dup,3,9)),realCTR:0,realCVR:0};
+    diff:5,comp:Math.round(clamp(3+Math.log2(dup)*1.3,3,9)),realCTR:0,realCVR:0};
 }
 
+/* agrupa las publicaciones del mismo tipo de producto: cuántos vendedores, cuántos pagan anuncios, ventas y precio medio */
+function buildClusters(items){
+  const m=new Map();
+  for(const p of items){const o=oppScore(p);if(o==null)continue;const k=clusterKey(p.name);
+    let c=m.get(k);if(!c)m.set(k,c={key:k,list:[],ads:0,best:0,sold:0,rs:0,rn:0,prices:[]});
+    c.list.push({p,o});if(p.ad)c.ads++;if(p.best)c.best++;c.sold=Math.max(c.sold,p.sold);if(p.rating){c.rs+=p.rating;c.rn++}c.prices.push(p.price)}
+  const out=[];
+  for(const c of m.values()){
+    c.list.sort((a,b)=>b.o-a.o);const top=c.list[0].p,n=c.list.length,med=Math.round(median(c.prices));
+    let sc=c.list[0].o+Math.min(15,Math.log2(n)*4)+(c.best?8:0)+(c.ads/n>.3?5:0);
+    const sell=med*1.25; // precio típico de venta con contraentrega; zona rentable de Dropi: 80 a 180 mil
+    if(sell>=80000&&sell<=180000)sc+=10;else if(sell<60000||sell>250000)sc-=8;
+    out.push({key:c.key,n,ads:c.ads,best:c.best,sold:c.sold,med,score:Math.round(sc),
+      rep:{...top,price:med,best:c.best>0,sold:c.sold,ad:c.ads>0,hits:n,rating:c.rn?+(c.rs/c.rn).toFixed(1):top.rating}});
+  }
+  return out.sort((a,b)=>b.score-a.score);
+}
+let aiSeenKeys=new Set(),aiWins=[],aiShown=new Set();
+function showWins(n){ // muestra los siguientes n ganadores aún no vistos, mejores primero
+  const next=aiWins.filter(o=>!aiShown.has(o)).slice(0,n);next.forEach(o=>aiShown.add(o));
+  $("#aiCands").querySelectorAll(".note").forEach(x=>x.remove());
+  $("#aiCands").insertAdjacentHTML("beforeend",next.map(o=>{const k=aiStore.length;aiStore.push(o.P);return candHTML(o,k)}).join(""));
+}
 async function aiSearch(more){
   if(!sampleFn)return;
   if(engState.par!=="ok"||!$("#eng-par")?.checked)return aiSearchKnowledge(more);
-  const cat=$("#aiCat").value,q=$("#aiQuery").value.trim(),target=+$("#aiTarget").value||10000;
-  if(!more){aiSeen=[];aiAll=[];aiChecked=0;$("#aiCands").innerHTML=""}
+  if(more&&aiWins.some(o=>!aiShown.has(o))){showWins(5);finishSearch("");return} // ya había ganadores sin mostrar
+  const cat=$("#aiCat").value,q=$("#aiQuery").value.trim(),target=+$("#aiTarget").value||10000,fresh=!more&&$("#aiFresh").checked;
+  if(!more){aiSeen=[];aiAll=[];aiChecked=0;aiSeenKeys=new Set();aiWins=[];aiShown=new Set();$("#aiCands").innerHTML=""}
   $("#aiErr").hidden=true;aiCtl=new AbortController();
-  const base=readP(),wins=[];
+  const base=readP();
   try{
-    const [c,sig]=await Promise.all([massScan(q,cat,target),collectSignals(q,cat).catch(e=>{if(e&&e.code==="cancelled")throw e;return {text:"",stats:[]}})]);
-    renderSignals(sig);
-    if(!c.items.size){aiBusy("");$("#aiScan").hidden=true;
+    const [c,sig]=await Promise.all([massScan(q,cat,target,fresh),collectSignals(q,cat).catch(e=>{if(e&&e.code==="cancelled")throw e;return {text:"",stats:[]}})]);
+    renderSignals(sig);$("#aiFresh").checked=false;
+    if(!c.items.size){$("#aiScan").hidden=true;
       $("#aiErr").textContent="Mercado Libre no entregó productos en este momento. Intenta de nuevo en unos minutos o con otra categoría.";$("#aiErr").hidden=false;return}
-    // 1) filtro + puntaje de oportunidad para todos
-    aiBusy(`Filtrando y puntuando ${c.items.size.toLocaleString("es-CO")} productos…`);await tick();
-    const all=[...c.items.values()],pass=[];
-    for(const p of all){const o=oppScore(p);if(o!=null)pass.push({p,o})}
-    pass.sort((a,b)=>b.o-a.o);
-    // 2) simulación rápida de los 300 mejores
-    const pool=pass.filter(x=>!aiSeen.includes(x.p.name)).slice(0,300),sim=[];
+    // 1) filtro, puntaje y agrupación por tipo de producto
+    aiBusy(`Filtrando y agrupando ${c.items.size.toLocaleString("es-CO")} productos…`);await tick();
+    const clusters=buildClusters(c.items.values()),passN=clusters.reduce((a,x)=>a+x.n,0);
+    // 2) simulación rápida de los 400 mejores tipos de producto
+    const pool=clusters.filter(x=>!aiSeenKeys.has(x.key)).slice(0,400),sim=[];
     for(let k=0;k<pool.length&&!aiCtl.signal.aborted;k++){
-      const P=roughP(base,pool[k].p,cat),ev=evalWith(P,1000,8);
-      sim.push({...pool[k],quick:ev.sc.score,rank:ev.sc.score*.6+pool[k].o*.4});
-      if(k%25===24){aiBusy(`Simulación rápida: ${k+1} de ${pool.length}…`);await tick()}
+      const ev=evalWith(roughP(base,pool[k].rep,cat),1000,8);
+      sim.push({...pool[k],quick:ev.sc.score,rank:ev.sc.score*.6+pool[k].score*.4});
+      if(k%25===24){aiBusy(`Simulación rápida: ${k+1} de ${pool.length} tipos de producto…`);await tick()}
     }
     sim.sort((a,b)=>b.rank-a.rank);
-    const finals=sim.slice(0,30);
-    renderFunnel([[c.items.size,"productos revisados"],[pass.length,"pasaron los filtros"],[sim.length,"simulados rápido"],[finals.length,"analizados por Claude"],[0,"ganadores"]]);
-    // 3) Claude analiza los finalistas en lotes y 4) simulación completa
-    for(let b=0;b<finals.length&&wins.length<WANT&&!aiCtl.signal.aborted;b+=15){
-      const batch=finals.slice(b,b+15);
-      aiBusy(`Claude está analizando los finalistas ${b+1} a ${b+batch.length}…`);
-      const rows=batch.map((x,i)=>`${i+1}. ${x.p.name} | precio ML ${fmt$(x.p.price)}${x.p.old>x.p.price?` (antes ${fmt$(x.p.old)})`:""}${x.p.sold?` | +${x.p.sold.toLocaleString("es-CO")} vendidos`:""}${x.p.best?" | MÁS VENDIDO":""}${x.p.ad?" | con anuncios pagos":""}${x.p.rating?` | ${x.p.rating}★`:""} | aparece ${x.p.hits} vez/veces | ${x.p.src.split("?")[0]}`).join("\n");
-      const raw=await sampleFn.json(`${AI_RULES}
+    // finalistas variados: si buscas en todas las categorías, máximo 10 por categoría
+    const perCat={},finals=[];
+    for(const x of sim){if(finals.length>=60)break;const g=guessCat(x.rep.name,"hogar");
+      if(cat==="all"&&(perCat[g]=(perCat[g]||0)+1)>10)continue;finals.push(x)}
+    finals.forEach(x=>aiSeenKeys.add(x.key));
+    const funnel=w=>renderFunnel([[c.items.size,"productos revisados"],[passN,"pasaron los filtros"],[clusters.length,"tipos de producto"],[sim.length,"simulados rápido"],[finals.length,"analizados por Claude"],[w,"ganadores"]]);
+    funnel(aiWins.length);
+    // 3) Claude analiza los finalistas en 2 lotes al mismo tiempo
+    aiBusy(`Claude está analizando ${finals.length} finalistas…`);
+    const batches=[finals.slice(0,30),finals.slice(30,60)].filter(b=>b.length);
+    const answers=await Promise.all(batches.map(batch=>{
+      const rows=batch.map((x,i)=>`${i+1}. ${x.rep.name} | precio medio ML ${fmt$(x.med)} | ${x.n} vendedor${x.n>1?"es":""}${x.ads?`, ${x.ads} con anuncios`:""}${x.best?" | MÁS VENDIDO":""}${x.sold?` | +${x.sold.toLocaleString("es-CO")} vendidos`:""}${x.rep.rating?` | ${x.rep.rating}★`:""} | ${String(x.rep.src).split("?")[0]}`).join("\n");
+      return sampleFn.json(`${AI_RULES}
 
-De ${c.items.size.toLocaleString("es-CO")} productos reales de Mercado Libre Colombia, estos ${batch.length} quedaron como finalistas por demanda y simulación${q?` para la búsqueda "${q}"`:""}${cat!=="all"?` en ${CATS[cat].n}`:""}:
+De ${c.items.size.toLocaleString("es-CO")} productos reales de Mercado Libre Colombia, agrupados por tipo, estos ${batch.length} quedaron como finalistas por demanda y simulación${q?` para la búsqueda "${q}"`:""}${cat!=="all"?` en ${CATS[cat].n}`:""}:
 ${rows}
 
-Para cada finalista que sirva para dropshipping con anuncios y contraentrega, devuelve su versión genérica (sin marca, la que se consigue en Dropi) con datos para venderlo. Descarta los que solo se venden por la marca, son pesados o frágiles, tienen tallas o no dejan margen.
-- "price": precio de venta con contraentrega (suele ser 1,2 a 1,6 veces el precio de Mercado Libre del genérico);
-- "perceived": el precio de Mercado Libre que viste arriba;
-- "signal": la evidencia de demanda de arriba (ej. "MÁS VENDIDO, +5mil vendidos, con anuncios");
-- "sources": [{"site":"Mercado Libre","price":precio ML,"url":el enlace de arriba}].
+Para cada finalista que sirva para dropshipping con anuncios y contraentrega, devuelve su versión genérica (sin marca, la que se consigue en Dropi) con datos para venderlo. Descarta los que solo se venden por la marca, son pesados o frágiles, tienen tallas, requieren registro sanitario difícil o no dejan margen.
+Reglas de quienes venden con Dropi: precio de venta ideal entre 80.000 y 180.000 COP y precio de venta de al menos 3 veces (costo + flete).
+- "ref": el número de la fila;
+- "price": precio de venta con contraentrega (suele ser 1,2 a 1,6 veces el precio medio de Mercado Libre del genérico);
+- "perceived": el precio medio de Mercado Libre de arriba;
+- "cost": costo realista del genérico para el dropshipper en Colombia;
+- "comp": usa el número de vendedores y anuncios para la saturación;
+- "signal": la evidencia de demanda de arriba (ej. "MÁS VENDIDO, 14 vendedores, 6 con anuncios");
+- "sources": [{"site":"Mercado Libre","price":precio medio,"url":el enlace de arriba}].
 ${sig.text?`
-Contexto adicional de búsquedas web de hoy (tendencias, virales):
+Contexto de búsquedas web de hoy (tendencias, virales):
 <<<
-${sig.text.slice(0,15000)}
+${sig.text.slice(0,12000)}
 >>>
 `:""}
 ${AI_SCHEMA}
+Agrega a cada objeto la clave "ref".
 
-Responde solo con un arreglo JSON con los productos que sirvan (puede tener menos de ${batch.length}).`,{signal:aiCtl.signal,cache:false});
-      const list=(Array.isArray(raw)?raw:[]).map(x=>aiClean(x,base.crea)).filter(Boolean).filter(x=>!aiSeen.includes(x.name));
-      for(const m of list){
-        if(aiCtl.signal.aborted||wins.length>=WANT)break;
-        aiSeen.push(m.name);aiChecked++;
-        aiBusy(`Probando precios y combo de ${m.name} · ganadores ${wins.length}`);await tick();
-        const ev=await bestConfig({...base,...m,p3:0,upPrice:0,upCost:0,realCTR:0,realCVR:0},m.name);
-        const o={meta:m,...ev};aiAll.push(o);
-        if(ev.sc.score>=WIN){const k=aiStore.length;aiStore.push(ev.P);wins.push(o);$("#aiCands").insertAdjacentHTML("beforeend",candHTML(o,k))}
-      }
-      batch.forEach(x=>aiSeen.push(x.p.name));
+Responde solo con un arreglo JSON con los productos que sirvan (puede tener menos de ${batch.length}).`,{signal:aiCtl.signal,cache:false}).then(raw=>({raw,batch}))
+        .catch(e=>{if(e&&e.code==="cancelled")throw e;return {raw:[],batch,err:e}});
+    }));
+    if(answers.every(a=>a.err))throw answers[0].err;
+    // 4) simulación completa de todos los analizados; ganadores sin repetir tipo de producto
+    const cand=[];
+    for(const {raw,batch} of answers)for(const x of (Array.isArray(raw)?raw:[])){
+      const m=aiClean(x,base.crea);if(!m||aiSeen.includes(m.name))continue;
+      const cl=batch[(+x.ref||0)-1];cand.push({m,key:cl?cl.key:normKey(m.name)});aiSeen.push(m.name);
     }
-    renderFunnel([[c.items.size,"productos revisados"],[pass.length,"pasaron los filtros"],[sim.length,"simulados rápido"],[finals.length,"analizados por Claude"],[document.querySelectorAll("#aiCands .cand").length,"ganadores"]]);
-    finishSearch(c.items.size<target?`Mercado Libre solo entregó ${c.items.size.toLocaleString("es-CO")} productos en esta búsqueda (muchas páginas estaban bloqueadas). `:"");
+    for(let k=0;k<cand.length&&!aiCtl.signal.aborted;k++){
+      const {m,key}=cand[k];aiChecked++;
+      aiBusy(`Simulación completa ${k+1} de ${cand.length}: ${m.name} · ganadores ${aiWins.length}`);await tick();
+      const ev=await bestConfig({...base,...m,p3:0,upPrice:0,upCost:0,realCTR:0,realCVR:0},m.name);
+      const o={meta:m,key,...ev};aiAll.push(o);
+      if(ev.sc.score>=WIN&&!aiWins.some(w=>w.key===key||normKey(w.meta.name)===normKey(m.name))){aiWins.push(o);funnel(aiWins.length)}
+    }
+    // los mejores primero, máximo 5 por búsqueda
+    aiWins.sort((a,b)=>b.sc.score-a.sc.score||b.profit-a.profit);
+    showWins(5);
+    funnel(aiWins.length);
+    finishSearch(c.items.size<target&&!c.cached?`Mercado Libre solo entregó ${c.items.size.toLocaleString("es-CO")} productos en esta búsqueda (muchas páginas estaban bloqueadas). `:"");
   }catch(e){aiFail(e)}finally{aiBusy("")}
 }
 function renderFunnel(steps){
@@ -1493,7 +1560,8 @@ function finishSearch(note){
       ${aiAll.length?`<div class="btns"><button class="btn sm" id="aiNear">Ver los 3 más cercanos (no son ganadores)</button></div>`:""}</div>`;
   }else if(note)$("#aiCands").insertAdjacentHTML("afterbegin",`<p class="note small" style="grid-column:1/-1">${note}</p>`);
   $("#aiMoreWrap").hidden=false;
-  $("#aiSummary").textContent=`${shown} ganador${shown===1?"":"es"}${catalog?` de ${catalog.items.size.toLocaleString("es-CO")} productos revisados`:""}.`;
+  const pend=aiWins.filter(o=>!aiShown.has(o)).length;
+  $("#aiSummary").textContent=`${shown} ganador${shown===1?"":"es"}${catalog?` de ${catalog.items.size.toLocaleString("es-CO")} productos revisados`:""}${pend?` (hay ${pend} más: presiona Buscar más ganadores)`:""}.`;
 }
 
 /* sin Parallel Search: búsqueda solo con el conocimiento de Claude y las señales web disponibles */
