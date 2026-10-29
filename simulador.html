@@ -135,6 +135,9 @@ td.r,th.r{text-align:right}
 .dirty{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
   padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
   background:var(--card);border-top:1px solid var(--card-border);box-shadow:0 -6px 24px rgba(0,0,0,.12);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);font-size:.88rem}
+.ali{background:color-mix(in srgb,var(--accent) 7%,var(--soft));border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:.8rem}
+.ali b.t{font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.ali a{color:var(--accent)}
 .engines{display:flex;flex-wrap:wrap;gap:8px}
 .eng{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--soft);font-size:.82rem;cursor:pointer}
 .eng input{accent-color:var(--accent);width:16px;height:16px;margin:0}
@@ -187,6 +190,13 @@ td.r,th.r{text-align:right}
       <p class="muted small">Elige la categoría y describe qué buscas. La app revisa <b>al menos 10.000 productos reales de Mercado Libre Colombia</b>, los filtra y les da un puntaje de oportunidad (más vendido, unidades vendidas, si otros pagan anuncios, calificación), simula los mejores, Claude analiza los finalistas y el simulador los prueba con varios precios y combo usando tu campaña de la sección 4. <b>Solo ves los que salen como Producto ganador</b> (75 puntos o más). Tarda unos minutos.</p>
       <div class="engines" id="aiEngines"></div>
       <p class="note small" id="engHelp" hidden></p>
+      <details id="impBox"><summary class="small">Importar desde Alibaba (China): tasa de cambio y sobrecosto</summary>
+        <div class="grid" style="margin-top:10px">
+          <label class="f">Tasa de cambio (pesos por dólar)<input id="impTrm" type="number" min="1000" step="1" value="3162"></label>
+          <label class="f">Sobrecosto de importación % <span class="h">flete, arancel, IVA, aduana</span><input id="impOver" type="number" min="0" max="300" value="70"></label>
+        </div>
+        <p class="muted small" style="margin-top:8px">Cada ganador busca su precio mayorista en Alibaba y calcula el costo puesto en Colombia: precio en dólares × tasa de cambio × (1 + sobrecosto). Una importación por barco suele salir 55 a 65 % sobre el precio FOB; por courier, más. Tasa de referencia: TRM del 29 de octubre de 2026.</p>
+      </details>
       <div class="in"><select id="aiCat" aria-label="Categoría donde buscar" style="flex:0 1 210px;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg)"></select><input id="aiQuery" placeholder="ej. que resuelvan un problema, entre 50 y 150 mil"><select id="aiTarget" aria-label="Productos a revisar" style="flex:0 1 170px;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg)"><option value="10000" selected>Revisar 10.000</option><option value="15000">Revisar 15.000</option><option value="20000">Revisar 20.000</option></select><button class="btn primary" id="aiSearch">Buscar ganadores</button></div>
       <label class="chk small" style="margin-top:-4px"><input id="aiFresh" type="checkbox"><span>Volver a leer Mercado Libre (ignorar el catálogo guardado de las últimas 24 horas)</span></label>
       <div class="in"><input id="aiName" placeholder="¿Ya tienes uno en mente? ej. masajeador de cuello eléctrico"><button class="btn" id="aiFill">Completar datos</button></div>
@@ -1143,6 +1153,7 @@ const AI_SCHEMA=`Cada producto es un objeto JSON con exactamente estas claves:
  "why": una frase de por qué puede vender,
  "risk": una frase con el mayor riesgo,
  "q": 2 a 4 palabras para buscarlo en Mercado Libre,
+ "en": nombre corto en inglés para buscarlo en Alibaba (ej. "cat water fountain"),
  "signal": frase corta con la evidencia de demanda que viste en las señales (ej. "#6 más vendido en Mascotas en Mercado Libre, +10mil vendidos") o "sin señal directa",
  "sources": hasta 3 objetos {"site": string, "price": número en COP o null, "url": string} tomados de las señales; [] si no hay}`;
 const AI_RULES=`Eres un analista de e-commerce en Colombia (dropshipping con anuncios en Meta/TikTok y pago contraentrega).
@@ -1161,7 +1172,7 @@ function aiClean(x,crea){
     p2:n(x.p2)>price&&n(x.p2)<2*price?Math.round(n(x.p2)/100)*100:0,
     cost:Math.round(n(x.cost))||Math.round(price/4),ship:Math.round(n(x.ship))||12000,perceived:Math.round(n(x.perceived))||price,
     wow:r(x.wow),prob:r(x.prob),qual:r(x.qual),diff:r(x.diff),comp:r(x.comp),crea,ageMin:aMin,ageMax:aMax,
-    why:String(x.why||"").slice(0,220),risk:String(x.risk||"").slice(0,220),q:String(x.q||x.name).slice(0,60),sources,
+    why:String(x.why||"").slice(0,220),risk:String(x.risk||"").slice(0,220),q:String(x.q||x.name).slice(0,60),en:String(x.en||"").slice(0,60),sources,
     signal:/sin señal/i.test(String(x.signal||""))?"":String(x.signal||"").slice(0,160)};
 }
 function aiBusy(txt){$("#aiStatus").hidden=!txt;$("#aiStatusTxt").textContent=txt||"";
@@ -1290,7 +1301,8 @@ function candHTML(o,i){
     <div class="why">${meta.signal?`<p><span class="ic ok">↑</span><span><b>${esc(meta.signal)}</b></span></p>`:""}${meta.why?`<p><span class="ic ok">✓</span><span>${esc(meta.why)}</span></p>`:""}${meta.risk?`<p><span class="ic warn">!</span><span class="muted">${esc(meta.risk)}</span></p>`:""}
       ${changed?`<p><span class="ic ok">$</span><span class="muted">Precio ajustado por el simulador (la IA sugería ${fmt$(meta.price)}).</span></p>`:""}</div>
     ${src}
-    <div class="lk"><a href="${ml}" target="_blank" rel="noopener">Precios en Mercado Libre</a><a href="${fb}" target="_blank" rel="noopener">Anuncios activos</a></div>
+    ${sampleFn&&engState.par==="ok"&&aliPlan(i,meta)?`<div class="ali" data-ali="${i}"><b class="t">Importando desde Alibaba</b><span class="muted">Buscando precio mayorista…</span></div>`:""}
+    <div class="lk"><a href="${ml}" target="_blank" rel="noopener">Precios en Mercado Libre</a><a href="${fb}" target="_blank" rel="noopener">Anuncios activos</a><a href="https://www.alibaba.com/trade/search?SearchText=${encodeURIComponent(meta.en||meta.q)}" target="_blank" rel="noopener">Buscar en Alibaba</a></div>
     <footer><span class="tag${meta.signal||meta.sources&&meta.sources.length?" web":""}">${meta.signal||meta.sources&&meta.sources.length?"Con señales reales":"Estimado por IA"}</span>
       <button class="btn sm primary" data-aiload="${i}">Cargar y simular completo</button></footer></article>`;
 }
@@ -1471,6 +1483,51 @@ function buildClusters(items){
   return out.sort((a,b)=>b.score-a.score);
 }
 let aiSeenKeys=new Set(),aiWins=[],aiShown=new Set();
+/* ---------- costo de importación desde Alibaba (búsqueda web, sin claves) ---------- */
+const aiMeta={},aliRes={};
+function impCfg(){const g=(id,d)=>{const v=+$("#"+id).value;return v>0?v:d};return {trm:g("impTrm",3162),over:(+$("#impOver").value||0)/100}}
+try{const v=JSON.parse(localStorage.getItem("simulador-import")||"{}");if(v.trm)$("#impTrm").value=v.trm;if(v.over!=null)$("#impOver").value=v.over}catch(_){}
+let impLast=JSON.stringify(impCfg());
+["#impTrm","#impOver"].forEach(s=>$(s).addEventListener("input",()=>{ // solo redibuja si el valor cambió de verdad (al salir del campo no debe tragarse el siguiente clic)
+  const now=JSON.stringify(impCfg());if(now===impLast)return;impLast=now;
+  try{localStorage.setItem("simulador-import",JSON.stringify({trm:$("#impTrm").value,over:$("#impOver").value}))}catch(_){}
+  Object.keys(aliRes).forEach(k=>renderAli(+k))}));
+let aliBusy=Promise.resolve();
+function aliPlan(k,meta){ // la tarjeta pide su precio de Alibaba una sola vez, cuando ya está en pantalla
+  if(!aiMeta[k]){aiMeta[k]=meta;setTimeout(()=>aliRes[k]?renderAli(k):aliQueue([k]),0)}else if(aliRes[k])setTimeout(()=>renderAli(k),0);
+  return true}
+function aliQueue(idx){for(const k of idx)aliBusy=aliBusy.then(()=>aliLookup(k)).catch(()=>{})} // de a uno, para no saturar los motores
+async function aliLookup(k){
+  const el=document.querySelector(`[data-ali="${k}"]`),m=aiMeta[k];if(!el||!m||!sampleFn)return;
+  const term=m.en||m.q||m.name;
+  try{
+    const r=await mcpNs.callTool("Parallel Search","web_search",{objective:`Precio mayorista en Alibaba de ${term}: dólares por unidad según cantidad y pedido mínimo (MOQ)`,
+      search_queries:[`alibaba ${term} wholesale price`,`site:alibaba.com ${term}`],session_id:AI_SESSION});
+    const d=r.payload!==undefined?r.payload:r.content,ev=parText(d,2500).text.slice(0,14000);
+    if(!ev.trim())throw new Error("sin resultados");
+    const x=await sampleFn.json(`De estos resultados de Alibaba, toma la oferta más comparable al producto genérico "${m.name}" (${term}) para revender en Colombia, preferiblemente con pedido mínimo bajo.
+Responde solo con un objeto JSON {"usdMin": número, "usdMax": número, "moq": número de unidades, "supplier": string, "url": enlace https de alibaba.com que aparezca abajo, "title": string corto} o null si no hay ninguna oferta comparable. No inventes precios ni enlaces.
+<<<
+${ev}
+>>>`,{modelTier:"quick"});
+    if(!x||!(+x.usdMin>0))throw new Error("sin oferta");
+    aliRes[k]={usdMin:+x.usdMin,usdMax:Math.max(+x.usdMin,+x.usdMax||+x.usdMin),moq:Math.max(1,Math.round(+x.moq||1)),supplier:String(x.supplier||"").slice(0,60),
+      url:/^https:\/\/([a-z0-9-]+\.)*alibaba\.com\//.test(String(x.url||""))?String(x.url):"",title:String(x.title||"").slice(0,90)};
+    renderAli(k);
+  }catch(e){el.innerHTML=`<b class="t">Importando desde Alibaba</b><span class="muted">No encontré un precio mayorista claro. Usa “Buscar en Alibaba”.</span>`}
+}
+function renderAli(k){
+  const el=document.querySelector(`[data-ali="${k}"]`),a=aliRes[k],P=aiStore[k];if(!el||!a||!P)return;
+  const {trm,over}=impCfg(),usd=(a.usdMin+a.usdMax)/2,landed=Math.round(usd*trm*(1+over)/100)*100;
+  const dropi=econ(P).c0,imp=econ({...P,cost:landed}).c0,better=imp>dropi;
+  el.innerHTML=`<b class="t">Importando desde Alibaba</b>
+    <span>${a.url?`<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title||"Ver oferta")}</a>`:esc(a.title||"Oferta encontrada")}${a.supplier?` · ${esc(a.supplier)}`:""}</span>
+    <span>US$${num(a.usdMin,2)}${a.usdMax>a.usdMin?`–${num(a.usdMax,2)}`:""} por unidad · pedido mínimo ${a.moq.toLocaleString("es-CO")} → <b>≈ ${fmt$(landed)} puesto en Colombia</b></span>
+    <span>Te dejaría <b class="${better?"pos":""}">${fmt$(imp)}</b> por pedido (con el costo actual: ${fmt$(dropi)}). Inversión mínima: ${fmt$(landed*a.moq)}.</span>
+    <div class="btns"><button class="btn sm" data-aliuse="${k}" data-cost="${landed}">Simular importando</button></div>`;
+}
+document.addEventListener("click",e=>{const k=e.target.dataset&&e.target.dataset.aliuse;if(k==null)return;const P=aiStore[+k];if(!P)return;
+  setForm({...P,cost:+e.target.dataset.cost});renderLearn();$("#run").scrollIntoView({behavior:"smooth",block:"center"});run()});
 function showWins(n){ // muestra los siguientes n ganadores aún no vistos, mejores primero
   const next=aiWins.filter(o=>!aiShown.has(o)).slice(0,n);next.forEach(o=>aiShown.add(o));
   $("#aiCands").querySelectorAll(".note").forEach(x=>x.remove());
