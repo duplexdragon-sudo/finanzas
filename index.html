@@ -174,6 +174,15 @@ body.privado .amt{filter:blur(8px);user-select:none}
 .switch::after{content:"";position:absolute;top:2px;left:2px;width:25px;height:25px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2);transition:left .2s}
 .switch[aria-checked="true"]{background:var(--pos)} .switch[aria-checked="true"]::after{left:22px}
 .about{display:flex;align-items:center;gap:14px}
+/* acceso al simulador de productos */
+a.simcard{flex-direction:row;align-items:center;gap:14px;text-decoration:none;color:inherit;position:relative;overflow:hidden}
+a.simcard::before{content:"";position:absolute;inset:0;background:radial-gradient(80% 120% at 0% 0%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 70%);pointer-events:none}
+.simcard .si{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;flex:none;background:var(--accent);color:var(--on-accent);box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 35%,transparent)}
+.simcard .si .ico{width:24px;height:24px}
+.simcard .st{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;position:relative}
+.simcard .best{font-size:.76rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.simcard .best b{color:var(--fg);font-weight:600}
+.simcard>.ico{color:var(--muted);position:relative}
 .about img{width:64px;height:64px;border-radius:15px}
 /* inversiones y metas */
 .inv{display:flex;flex-direction:column;gap:8px;padding:14px 0;border-top:1px solid var(--line)}
@@ -262,6 +271,12 @@ body.privado .amt{filter:blur(8px);user-select:none}
     </section>
 
     <div class="tiles" id="tiles"></div>
+
+    <a class="card simcard" href="simulador.html">
+      <span class="si"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="17" r="2"/><circle cx="19" cy="17" r="2"/><path d="M11 7l-5 8M13 7l5 8M7 17h10"/></svg></span>
+      <div class="st"><h2>Simulador de productos</h2><span class="small muted">Prueba un producto en una sociedad virtual antes de invertir</span><span class="best" id="simBest" hidden></span></div>
+      <svg class="ico sm" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </a>
 
     <section class="card">
       <div class="row"><h2>Metas de ahorro</h2><button class="link" data-screen="s-metas">Ver todas <svg class="ico sm" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></div>
@@ -1059,6 +1074,13 @@ function fromHash(){const h=decodeURIComponent(location.hash.slice(1)).toLowerCa
 window.addEventListener("hashchange",fromHash);
 refresh();fromHash();
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+/* tarjeta del simulador: muestra el producto mejor calificado que guardaste allá */
+function simBest(){const el=document.getElementById("simBest");let L=[];
+  try{L=JSON.parse(localStorage.getItem("simulador-productos")||"[]")}catch(e){}
+  if(!Array.isArray(L)||!L.length){el.hidden=true;return}
+  const b=L.reduce((x,y)=>(y.score>x.score?y:x));
+  el.innerHTML=`Mejor producto · <b>${b.score}/100</b> ${esc(b.name)}${L.length>1?` · ${L.length} probados`:""}`;el.hidden=false}
+simBest();addEventListener("pageshow",simBest);
 </script>
 </body>
 </html>

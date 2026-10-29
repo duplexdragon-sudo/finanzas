@@ -1,0 +1,1746 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#EEF0F5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08070F" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Simulador de Productos</title>
+<script>
+/* mismo tema que la app de finanzas */
+try{var c=JSON.parse(localStorage.getItem("mis-finanzas-config")||"{}").tema||{};var r=document.documentElement;
+if(c.modo==="oscuro")r.setAttribute("data-theme","dark");else if(c.modo==="claro")r.setAttribute("data-theme","light")}catch(e){}
+</script>
+<style>
+/* Layout: una columna de tarjetas de vidrio. Arriba el formulario del producto (producto, atractivo,
+   campaña, avanzado); abajo los resultados: veredicto, KPIs, curva de utilidad, mapa de la sociedad,
+   segmentos, voces de agentes, diagnóstico, precio óptimo y comparativa de productos guardados. */
+:root{
+  --accent:#7C3AED; --on-accent:#FFFFFF;
+  --bg:#EEF0F5; --fg:#15161D; --muted:#6B6F80; --line:rgba(21,22,29,.08); --soft:rgba(21,22,29,.05);
+  --card:rgba(255,255,255,.62); --card-border:rgba(255,255,255,.85); --card-shadow:0 8px 30px rgba(30,30,60,.07);
+  --pos:#18914A; --neg:#D6394A; --warn:#B7791F; --glow:.20; --grid:rgba(21,22,29,.07); --none:#B9BDCB;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --accent:#9D7BFF; --on-accent:#0B0816;
+  --bg:#08070F; --fg:#F3F2F9; --muted:#9C99B3; --line:rgba(255,255,255,.08); --soft:rgba(255,255,255,.06);
+  --card:rgba(30,27,52,.52); --card-border:rgba(170,160,255,.13); --card-shadow:0 10px 40px rgba(0,0,0,.35);
+  --pos:#3DDC84; --neg:#FF6B7F; --warn:#F2B84B; --glow:.38; --grid:rgba(255,255,255,.07); --none:#4A4760; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --accent:#9D7BFF; --on-accent:#0B0816;
+  --bg:#08070F; --fg:#F3F2F9; --muted:#9C99B3; --line:rgba(255,255,255,.08); --soft:rgba(255,255,255,.06);
+  --card:rgba(30,27,52,.52); --card-border:rgba(170,160,255,.13); --card-shadow:0 10px 40px rgba(0,0,0,.35);
+  --pos:#3DDC84; --neg:#FF6B7F; --warn:#F2B84B; --glow:.38; --grid:rgba(255,255,255,.07); --none:#4A4760; color-scheme:dark}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.4 var(--font);-webkit-font-smoothing:antialiased;min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+   radial-gradient(60% 40% at 0% 15%,color-mix(in srgb,var(--accent) calc(var(--glow)*100%),transparent),transparent 70%),
+   radial-gradient(50% 35% at 100% 45%,color-mix(in srgb,var(--accent) calc(var(--glow)*70%),transparent),transparent 70%)}
+main{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:calc(14px + env(safe-area-inset-top,0px)) calc(60px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+h1{font-size:1.6rem} h2{font-size:1.06rem} h3{font-size:.95rem}
+p{margin:0}
+.muted{color:var(--muted)} .small{font-size:.8rem} .pos{color:var(--pos)} .neg{color:var(--neg)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--card-border);border-radius:22px;padding:18px;box-shadow:var(--card-shadow);
+  -webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);display:flex;flex-direction:column;gap:14px;min-width:0}
+.link{color:var(--muted);font-size:.85rem;text-decoration:none}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* formulario */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:.8rem;color:var(--muted);min-width:0}
+label.f input,label.f select{width:100%;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:10px 12px;color:var(--fg);font-size:.95rem;min-width:0}
+label.f .h{font-size:.72rem;opacity:.85}
+.sl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:.85rem}
+.sl input{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+.sl b{font-variant-numeric:tabular-nums}
+.sl .h{grid-column:1/-1;font-size:.72rem;color:var(--muted)}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:.85rem}
+.chk input{accent-color:var(--accent);width:18px;height:18px;margin-top:1px;flex:none}
+details summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between}
+details summary::after{content:"＋";color:var(--muted)}
+details[open] summary::after{content:"－"}
+.btn{border:0;border-radius:14px;padding:13px 16px;font-weight:600;font-size:.95rem;cursor:pointer;background:var(--soft);color:var(--fg)}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
+.btn.sm{padding:8px 12px;font-size:.82rem;border-radius:11px}
+.btn:disabled{opacity:.6;cursor:progress}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.prog{height:6px;border-radius:3px;background:var(--soft);overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+
+/* resultados */
+.verdict{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
+.gauge{width:104px;height:104px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--vc) calc(var(--v)*1%),var(--soft) 0)}
+.gauge div{width:82px;height:82px;border-radius:50%;background:var(--bg);display:grid;place-items:center;text-align:center}
+.gauge b{font-size:1.7rem;line-height:1;font-variant-numeric:tabular-nums}
+.gauge span{font-size:.65rem;color:var(--muted)}
+.badge{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:1.15rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--soft);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.tile .k{font-size:.74rem;color:var(--muted)}
+.tile .v{font-size:1.2rem;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tile .s{font-size:.72rem;color:var(--muted)}
+.cw{position:relative}
+.cw canvas{width:100%;display:block;touch-action:pan-y}
+.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);font-size:.75rem;padding:6px 9px;border-radius:9px;white-space:nowrap;transform:translate(-50%,-110%);font-variant-numeric:tabular-nums;z-index:2}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{font-weight:600;color:var(--muted);font-size:.74rem;text-align:left;padding:6px 6px;border-bottom:1px solid var(--line)}
+td{padding:7px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+td.r,th.r{text-align:right}
+.tw{overflow-x:auto}
+.mini{height:6px;background:var(--soft);border-radius:3px;overflow:hidden;min-width:60px}
+.mini i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.voices{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.voice{background:var(--soft);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:6px;font-size:.85rem}
+.voice .who{font-size:.74rem;color:var(--muted)}
+.voice q{font-style:italic}
+.diag{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.diag li{display:grid;grid-template-columns:22px 1fr;gap:8px;font-size:.88rem}
+.diag li b{display:block}
+.ic{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:.72rem;font-weight:800;color:#fff}
+.ic.ok{background:var(--pos)} .ic.warn{background:var(--warn)} .ic.bad{background:var(--neg)}
+.dayctl{display:flex;gap:10px;align-items:center}
+.dayctl input{flex:1;accent-color:var(--accent)}
+.note{background:var(--soft);border-radius:14px;padding:10px 12px;font-size:.84rem}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.pill.on{background:color-mix(in srgb,var(--pos) 16%,transparent);color:var(--pos)}
+.ai{border-color:color-mix(in srgb,var(--accent) 40%,var(--card-border))}
+.ai .in{display:flex;gap:8px;flex-wrap:wrap}
+.ai .in input{flex:1 1 220px;min-width:0;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg);font-size:.95rem}
+.plan{display:flex;flex-direction:column;gap:8px;font-size:.84rem}
+.plan .lvl{background:var(--soft);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.plan .lvl.l2{margin-left:14px}
+.plan .lvl b{font-weight:600}
+.plan .lvl span{color:var(--muted);font-size:.78rem}
+.steps{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:.85rem}
+.funnel{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px}
+.funnel div{background:var(--soft);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:1px}
+.funnel b{font-size:1.05rem;font-variant-numeric:tabular-nums}
+.funnel span{font-size:.7rem;color:var(--muted)}
+.funnel div:last-child{background:color-mix(in srgb,var(--pos) 14%,transparent)}
+.funnel div:last-child b{color:var(--pos)}
+.dirty{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  background:var(--card);border-top:1px solid var(--card-border);box-shadow:0 -6px 24px rgba(0,0,0,.12);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);font-size:.88rem}
+.ali{background:color-mix(in srgb,var(--accent) 7%,var(--soft));border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:.8rem}
+.ali b.t{font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.ali a{color:var(--accent)}
+.engines{display:flex;flex-wrap:wrap;gap:8px}
+.eng{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:12px;background:var(--soft);font-size:.82rem;cursor:pointer}
+.eng input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.eng small{color:var(--muted)}
+.eng.ok small{color:var(--pos)}
+.eng.off{opacity:.75;cursor:default}
+.cands{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.cand{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0;box-shadow:var(--card-shadow)}
+.cand header{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center}
+.cico{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent)}
+.cico svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cand h3{font-size:1rem;line-height:1.25;overflow-wrap:anywhere}
+.cand .meta{font-size:.74rem;color:var(--muted)}
+.ring{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--vc) calc(var(--v)*1%),var(--soft) 0)}
+.ring b{width:40px;height:40px;border-radius:50%;background:var(--sheet,var(--bg));display:grid;place-items:center;font-size:.95rem;font-variant-numeric:tabular-nums}
+.mets{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mets div{background:var(--soft);border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.mets span{font-size:.68rem;color:var(--muted)}
+.mets b{font-size:.95rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.mets i{font-style:normal;font-size:.68rem;color:var(--muted)}
+.facts{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:.78rem}
+.facts span:nth-child(odd){color:var(--muted)}
+.facts span:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+.why{display:flex;flex-direction:column;gap:5px;font-size:.82rem}
+.why p{display:grid;grid-template-columns:18px 1fr;gap:6px}
+.why .ic{width:18px;height:18px;font-size:.62rem}
+.src{font-size:.74rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px}
+.src a,.cand .lk a{color:var(--accent)}
+.cand .lk{display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem}
+.cand footer{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;margin-top:auto}
+.tag{font-size:.7rem;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
+.tag.web{background:color-mix(in srgb,var(--pos) 15%,transparent);color:var(--pos)}
+.sub{font-size:.74rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+</style>
+</head>
+<body>
+<div class="bgfx"></div>
+<main>
+  <div class="row">
+    <div>
+      <h1>Simulador de productos</h1>
+      <p class="muted small">Una sociedad sintética de consumidores colombianos decide si compra tu producto.</p>
+    </div>
+    <a class="link" href="./">← Mis Finanzas</a>
+  </div>
+
+  <section class="card ai" id="aiCard">
+    <div class="row"><h2>Buscar productos ganadores</h2><span class="pill" id="aiPill">IA</span></div>
+    <div id="aiOn" hidden style="display:flex;flex-direction:column;gap:12px">
+      <p class="muted small">Elige la categoría y describe qué buscas. La app revisa <b>al menos 10.000 productos reales de Mercado Libre Colombia</b>, los filtra y les da un puntaje de oportunidad (más vendido, unidades vendidas, si otros pagan anuncios, calificación), simula los mejores, Claude analiza los finalistas y el simulador los prueba con varios precios y combo usando tu campaña de la sección 4. <b>Solo ves los que salen como Producto ganador</b> (75 puntos o más). Tarda unos minutos.</p>
+      <div class="engines" id="aiEngines"></div>
+      <p class="note small" id="engHelp" hidden></p>
+      <details id="impBox"><summary class="small">Importar desde Alibaba (China): tasa de cambio y sobrecosto</summary>
+        <div class="grid" style="margin-top:10px">
+          <label class="f">Tasa de cambio (pesos por dólar)<input id="impTrm" type="number" min="1000" step="1" value="3162"></label>
+          <label class="f">Sobrecosto de importación % <span class="h">flete, arancel, IVA, aduana</span><input id="impOver" type="number" min="0" max="300" value="70"></label>
+        </div>
+        <p class="muted small" style="margin-top:8px">Cada ganador busca su precio mayorista en Alibaba y calcula el costo puesto en Colombia: precio en dólares × tasa de cambio × (1 + sobrecosto). Una importación por barco suele salir 55 a 65 % sobre el precio FOB; por courier, más. Tasa de referencia: TRM del 29 de octubre de 2026.</p>
+      </details>
+      <div class="in"><select id="aiCat" aria-label="Categoría donde buscar" style="flex:0 1 210px;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg)"></select><input id="aiQuery" placeholder="ej. que resuelvan un problema, entre 50 y 150 mil"><select id="aiTarget" aria-label="Productos a revisar" style="flex:0 1 170px;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:11px 12px;color:var(--fg)"><option value="10000" selected>Revisar 10.000</option><option value="15000">Revisar 15.000</option><option value="20000">Revisar 20.000</option></select><button class="btn primary" id="aiSearch">Buscar ganadores</button></div>
+      <label class="chk small" style="margin-top:-4px"><input id="aiFresh" type="checkbox"><span>Volver a leer Mercado Libre (ignorar el catálogo guardado de las últimas 24 horas)</span></label>
+      <div class="in"><input id="aiName" placeholder="¿Ya tienes uno en mente? ej. masajeador de cuello eléctrico"><button class="btn" id="aiFill">Completar datos</button></div>
+      <div class="row" id="aiStatus" hidden><span class="small" id="aiStatusTxt" role="status"></span><button class="btn sm" id="aiStop">Detener</button></div>
+      <p class="neg small" id="aiErr" role="alert" hidden></p>
+      <div id="aiScan" hidden style="display:flex;flex-direction:column;gap:6px">
+        <div class="row"><b class="small" id="aiScanTxt">Revisando productos…</b><span class="small muted num" id="aiScanPages"></span></div>
+        <div class="prog"><i id="aiScanBar"></i></div>
+      </div>
+      <div class="funnel" id="aiFunnel" hidden></div>
+      <div class="engines" id="aiSignals" hidden></div>
+      <div class="cands" id="aiCands"></div>
+      <div class="row" id="aiMoreWrap" hidden><span class="muted small" id="aiSummary"></span><button class="btn sm" id="aiMore">Buscar más ganadores</button></div>
+      <p class="muted small">Con un motor web activo, los precios salen de búsquedas reales; sin él, son estimados con el conocimiento de Claude. En ambos casos revisa el costo real en Dropi antes de invertir.</p>
+    </div>
+    <p class="muted small" id="aiOff">El buscador con IA funciona cuando abres el simulador dentro de claude.ai: <a href="https://claude.ai/artifact/5vscmd375TchXBMSXMNaLo" target="_blank" rel="noopener" style="color:var(--accent)">abrir versión con IA</a>.</p>
+  </section>
+
+  <section class="card">
+    <h2>1 · Producto</h2>
+    <div class="grid">
+      <label class="f">Nombre<input id="nombre" value="Corrector de postura"></label>
+      <label class="f">Categoría<select id="cat"></select></label>
+      <label class="f">Precio de venta<input id="precio" type="number" inputmode="numeric" min="0" step="100" value="89900"></label>
+      <label class="f">Costo del producto<input id="costo" type="number" inputmode="numeric" min="0" step="100" value="22000"></label>
+      <label class="f">Valor percibido <span class="h">¿A cuánto lo ve la gente en otras tiendas?</span><input id="percibido" type="number" inputmode="numeric" min="0" step="100" value="120000"></label>
+      <label class="f">Flete por envío<input id="flete" type="number" inputmode="numeric" min="0" step="100" value="12000"></label>
+      <label class="f">% pedidos contraentrega<input id="cod" type="number" min="0" max="100" value="80"></label>
+      <label class="f">% rechazo contraentrega<input id="rechazo" type="number" min="0" max="90" value="25"></label>
+      <label class="f">Comisión pasarela / recaudo %<input id="comision" type="number" min="0" max="30" step="0.1" value="3"></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2 · Oferta y ticket promedio</h2>
+    <p class="muted small">Deja en blanco lo que no ofreces. Un combo sube el valor de cada pedido y el flete y el riesgo de rechazo se pagan una sola vez.</p>
+    <div class="grid">
+      <label class="f">Precio llevando 2 unidades<input id="precio2" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 149900"></label>
+      <label class="f">Precio llevando 3 unidades<input id="precio3" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 199900"></label>
+    </div>
+    <span class="sub">Producto adicional (upsell)</span>
+    <div class="grid">
+      <label class="f">Precio del adicional<input id="upPrecio" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 19900"></label>
+      <label class="f">Costo del adicional<input id="upCosto" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 5000"></label>
+      <label class="f">% de clientes que lo agrega<input id="upTasa" type="number" min="0" max="100" value="15"></label>
+    </div>
+    <p class="note" id="offerTxt"></p>
+  </section>
+
+  <section class="card">
+    <h2>3 · Atractivo del producto <span class="muted small">(1 a 10, sé honesto)</span></h2>
+    <div class="grid" id="sliders"></div>
+  </section>
+
+  <section class="card">
+    <h2>4 · Campaña de anuncios</h2>
+    <div class="grid">
+      <label class="f">Presupuesto diario<input id="presupuesto" type="number" inputmode="numeric" min="0" step="1000" value="150000"></label>
+      <label class="f">CPM (costo por 1.000 impresiones)<input id="cpm" type="number" inputmode="numeric" min="1" step="100" value="9000"></label>
+      <label class="f">Días a simular<input id="dias" type="number" min="7" max="120" value="30"></label>
+      <label class="f">Edad mínima del público<input id="edadMin" type="number" min="18" max="65" value="25"></label>
+      <label class="f">Edad máxima del público<input id="edadMax" type="number" min="18" max="65" value="55"></label>
+      <label class="f">Costos fijos del mes <span class="h">tienda, apps, dominio…</span><input id="fijos" type="number" inputmode="numeric" min="0" step="1000" value="150000"></label>
+      <label class="f">% clientes que recompran <span class="h">0 si no es consumible</span><input id="recompra" type="number" min="0" max="100" value="0"></label>
+      <label class="f">Recompran cada (días)<input id="ciclo" type="number" min="1" max="120" value="30"></label>
+    </div>
+    <label class="chk"><input id="escalar" type="checkbox" checked><span>Escalar y apagar como un media buyer: cada 3 días sube el presupuesto 30 % si el CPA está muy por debajo del CPA de equilibrio, lo baja si está por encima y apaga la campaña si sigue perdiendo.</span></label>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>5 · Avanzado y calibración de este producto</summary>
+      <div class="grid" style="margin-top:14px">
+        <label class="f">Audiencia alcanzable (personas)<input id="mercado" type="number" min="10000" step="10000" value="1500000"></label>
+        <label class="f">Agentes simulados<select id="agentes"><option value="2000">2.000 (rápido)</option><option value="4000" selected>4.000</option><option value="8000">8.000 (preciso)</option></select></label>
+        <label class="f">Simulaciones Monte Carlo<select id="corridas"><option>20</option><option selected>40</option><option>80</option></select></label>
+        <label class="f">CTR real de tu prueba % <span class="h">opcional</span><input id="ctrReal" type="number" min="0" max="20" step="0.01" placeholder="ej. 1,8"></label>
+        <label class="f">Conversión real (clic → compra) % <span class="h">opcional</span><input id="cvrReal" type="number" min="0" max="50" step="0.01" placeholder="ej. 2,5"></label>
+      </div>
+      <p class="muted small" style="margin-top:10px">Si ya corriste una prueba de 3–5 días, pon aquí tu CTR y tu tasa de conversión: la sociedad se ajusta a esos números y la predicción se vuelve mucho más confiable.</p>
+    </details>
+  </section>
+
+  <div class="btns">
+    <button class="btn primary" id="run" style="flex:1">Simular sociedad</button>
+  </div>
+  <div class="prog" id="prog" hidden><i></i></div>
+
+  <div id="out" hidden style="display:flex;flex-direction:column;gap:14px">
+    <section class="card">
+      <div class="verdict">
+        <div class="gauge" id="gauge"><div><b id="score">0</b><span>de 100</span></div></div>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+          <span class="badge" id="label"></span>
+          <p id="summary" class="small"></p>
+        </div>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="btns"><button class="btn sm primary" id="recalc">↻ Recalcular</button><button class="btn sm" id="save">Guardar en comparativa</button></div>
+    </section>
+
+    <section class="card">
+      <h2>Utilidad acumulada día a día</h2>
+      <p class="muted small">Línea: escenario típico (mediana). Franja: entre el escenario pesimista (P10) y el optimista (P90).</p>
+      <div class="cw"><canvas id="cProfit" height="240"></canvas></div>
+    </section>
+
+    <section class="card">
+      <h2>¿Qué tan seguido gano plata?</h2>
+      <p class="muted small" id="histTxt"></p>
+      <div class="cw"><canvas id="cHist" height="180"></canvas></div>
+      <div class="legend"><span><i style="background:var(--neg)"></i>Escenarios con pérdida</span><span><i style="background:var(--pos)"></i>Escenarios con ganancia</span></div>
+    </section>
+
+    <section class="card">
+      <div class="row"><h2>La sociedad</h2><span class="muted small" id="socTxt"></span></div>
+      <p class="muted small">Cada punto es un grupo de personas parecidas (edad e ingreso). Mira cómo se propaga la compra por anuncios y por voz a voz.</p>
+      <div class="cw"><canvas id="cSoc" height="300"></canvas></div>
+      <div class="legend"><span><i style="background:var(--none)"></i>No lo ha visto</span><span><i style="background:var(--accent)"></i>Vio el anuncio</span><span><i style="background:var(--pos)"></i>Compró</span><span><i style="background:var(--neg)"></i>Compró y quedó insatisfecho</span></div>
+      <div class="dayctl"><button class="btn sm" id="play">▶ Reproducir</button><input type="range" id="day" min="1" value="1"><b class="num small" id="dayLbl">Día 1</b></div>
+    </section>
+
+    <section class="card">
+      <h2>¿Quién compra?</h2>
+      <div class="tw"><table id="segTable"></table></div>
+    </section>
+
+    <section class="card">
+      <h2>Voces de la sociedad</h2>
+      <p class="muted small">Agentes del público objetivo ven tu anuncio. Esto es lo que "piensan", según sus rasgos.</p>
+      <div class="voices" id="voices"></div>
+    </section>
+
+    <section class="card">
+      <h2>Diagnóstico</h2>
+      <ul class="diag" id="diag"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Precio óptimo</h2>
+      <p class="muted small" id="priceTxt">Calculando…</p>
+      <div class="cw"><canvas id="cPrice" height="200"></canvas></div>
+    </section>
+
+    <section class="card">
+      <div class="row"><h2>¿Cuánto invertir en publicidad?</h2><span class="pill" id="budPill">Calculando…</span></div>
+      <p class="muted small">El simulador repite tu campaña con 9 presupuestos diarios fijos (sin escalar ni apagar) para encontrar con cuál ganas más y cuánto arriesgas.</p>
+      <div class="tiles" id="budTiles"></div>
+      <div class="cw"><canvas id="cBud" height="210"></canvas></div>
+      <p class="muted small">Línea: utilidad típica del periodo simulado según el presupuesto diario. Franja: entre el escenario pesimista y el optimista.</p>
+      <div class="tw"><table id="budTable"></table></div>
+      <h3>Reglas para tu campaña</h3>
+      <ul class="diag" id="budRules"></ul>
+      <div class="btns"><button class="btn sm" id="budUse" hidden></button></div>
+    </section>
+
+    <section class="card" id="metaCard">
+      <div class="row"><h2>Archivo para Meta Ads</h2><span class="pill">Campaña de prueba</span></div>
+      <p class="muted small">Tu campaña de prueba lista para importar en el Administrador de anuncios: segmentada con lo que mostró la simulación, con el presupuesto de la fase de prueba y un límite de gasto. Todo queda en pausa para que lo revises antes de gastar.</p>
+      <div class="grid">
+        <label class="f">Enlace de tu página de venta<input id="metaLink" type="url" inputmode="url" placeholder="https://tutienda.com/producto"></label>
+        <label class="f">ID de tu página de Facebook <span class="h">opcional, para publicar como tu página</span><input id="metaPage" inputmode="numeric" placeholder="ej. 104567891234567"></label>
+      </div>
+      <div class="plan" id="metaPlan"></div>
+      <div class="btns"><button class="btn primary" id="metaDl">Descargar archivo para Meta (.csv)</button></div>
+      <p class="small" id="metaMsg" role="status" hidden></p>
+      <details>
+        <summary>Cómo importarlo</summary>
+        <ol class="steps">
+          <li>Abre el <b>Administrador de anuncios</b> en el computador y busca el botón <b>Importar/Exportar</b> (el ícono de la hoja con flecha; si no lo ves, está en <b>Más</b>) → <b>Importar anuncios en bloque</b>.</li>
+          <li>Sube el archivo .csv y revisa el resumen que muestra Meta antes de confirmar.</li>
+          <li>En cada conjunto de anuncios elige tu <b>píxel</b> y el evento <b>Compra</b> (el archivo no puede traerlos porque son propios de tu cuenta).</li>
+          <li>En cada anuncio sube el <b>video o imagen</b> de ese ángulo. Los nombres de archivo sugeridos vienen en la columna Image.</li>
+          <li>Revisa textos y enlace, y activa la campaña. Aplica las reglas de la sección anterior para apagar o escalar.</li>
+        </ol>
+      </details>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Comparativa de productos</h2>
+    <div class="tw" id="cmp"></div>
+  </section>
+
+  <section class="card">
+    <div class="row"><h2>Aprender de tus ventas reales</h2><span class="pill" id="lrPill">Sin datos</span></div>
+    <p class="muted small">Cuando pruebes un producto de verdad, ten sus datos en el formulario de arriba (usa <b>Cargar</b> en la comparativa) y anota aquí lo que pasó. El simulador calcula lo que habría predicho con ese mismo gasto, lo compara con lo que vendiste y corrige sus supuestos para los próximos productos.</p>
+    <div class="grid">
+      <label class="f">Días que corrió la prueba<input id="lrDias" type="number" min="1" max="120" placeholder="ej. 5"></label>
+      <label class="f">Gasto total en anuncios<input id="lrGasto" type="number" inputmode="numeric" min="0" step="1000" placeholder="ej. 500000"></label>
+      <label class="f">Pedidos recibidos<input id="lrPedidos" type="number" min="0" placeholder="ej. 14"></label>
+      <label class="f">Clics al enlace <span class="h">opcional, mejora el ajuste</span><input id="lrClics" type="number" min="0" placeholder="ej. 820"></label>
+      <label class="f">CPM real <span class="h">opcional</span><input id="lrCpm" type="number" inputmode="numeric" min="0" step="100" placeholder="ej. 10500"></label>
+      <label class="f">Pedidos entregados <span class="h">opcional, para tu rechazo real</span><input id="lrEntregados" type="number" min="0" placeholder="ej. 10"></label>
+    </div>
+    <div class="btns"><button class="btn primary sm" id="lrAdd"></button></div>
+    <p class="neg small" id="lrErr" role="alert" hidden></p>
+    <div id="lrSummary" style="display:flex;flex-direction:column;gap:10px"></div>
+    <label class="chk"><input id="lrUse" type="checkbox" checked><span>Usar lo aprendido en las simulaciones (no aplica si pusiste CTR o conversión real en la sección 5)</span></label>
+    <div class="tw" id="lrTable"></div>
+  </section>
+
+  <section class="card">
+    <details>
+      <summary>¿Cómo funciona y qué tan confiable es?</summary>
+      <div class="small" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+        <p><b>Sociedad sintética.</b> Se crean miles de agentes con edad, estrato (1–6), ingreso, interés por la categoría, sensibilidad al precio, impulsividad, preferencia por contraentrega e influencia social. Están conectados en una red social donde cada uno se relaciona con gente parecida (misma edad y estrato) y con algunos desconocidos.</p>
+        <p><b>Cada día</b> tu presupuesto compra impresiones según el CPM. Los agentes del público ven el anuncio, algunos hacen clic (CTR según creativo, efecto WOW, interés y cansancio publicitario) y deciden comprar según un modelo de utilidad: interés + problema que resuelve + calidad + diferenciación − competencia + valor percibido frente al precio − cuánto pesa el precio en su ingreso. Los compradores generan <b>voz a voz</b> en su red y prueba social en los comentarios; los insatisfechos dejan malas reseñas que frenan las ventas.</p>
+        <p><b>Finanzas reales de e-commerce:</b> rechazos de contraentrega (pagas flete de ida y vuelta), devoluciones, comisiones, costo del producto, anuncios y costos fijos.</p>
+        <p><b>Ofertas.</b> Con precios por 2 y 3 unidades el simulador estima qué parte de los clientes elige cada opción según el descuento por unidad, y calcula el ticket promedio. El flete, el rechazo y la comisión se calculan por pedido, por eso un combo suele mejorar mucho el margen.</p>
+        <p><b>Aprendizaje.</b> Cada resultado real se compara con lo que el simulador habría predicho con el mismo gasto. La diferencia en clics y en compras por clic se promedia entre todas tus pruebas (las de más pedidos pesan más) y corrige las simulaciones siguientes. También corrige tu forma de calificar: si sueles calificar con nota alta, el ajuste lo compensa.</p>
+        <p><b>Monte Carlo.</b> Como nadie sabe de antemano el CTR o la conversión exactos, la simulación se repite muchas veces variando esos supuestos. Así obtienes una probabilidad de ganar plata, no un único número.</p>
+        <p><b>Límites.</b> Es una aproximación para filtrar productos y comparar ideas, no una garantía. Los números absolutos dependen de que tus calificaciones (1–10) sean honestas. Lo más útil: compara varios productos con los mismos criterios, y luego valida los mejores con una prueba real pequeña y vuelve a simular con tu CTR y conversión reales.</p>
+      </div>
+    </details>
+  </section>
+</main>
+<div class="dirty" id="dirtyBar" hidden role="status"><span>Cambiaste datos del producto o la campaña</span><button class="btn sm primary" id="dirtyRecalc">↻ Recalcular</button></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const sig=x=>1/(1+Math.exp(-x));
+const fmt$=v=>(v<0?"-$":"$")+Math.round(Math.abs(v)).toLocaleString("es-CO");
+const fmtC=v=>{const s=v<0?"-$":"$",a=Math.abs(v);
+  if(a>=1e6)return s+(a/1e6).toFixed(a>=1e7?0:1).replace(".",",")+" M";
+  if(a>=1e3)return s+Math.round(a/1e3)+" mil";return s+Math.round(a)};
+const pct=(v,d=0)=>(v*100).toFixed(d).replace(".",",")+" %";
+const num=(v,d=1)=>v.toFixed(d).replace(".",",");
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const tick=()=>new Promise(r=>setTimeout(r,0));
+
+/* ---------- aleatoriedad reproducible ---------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){let u=0;while(!u)u=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r())}
+function median(a){const s=[...a].sort((x,y)=>x-y);return s[Math.floor(s.length/2)]}
+function quant(a,q){const s=[...a].sort((x,y)=>x-y);return s[clamp(Math.round(q*(s.length-1)),0,s.length-1)]}
+
+/* ---------- categorías: edad pico de interés, dispersión, interés base, sesgo por ingreso ---------- */
+const CATS={
+  salud:{n:"Salud y bienestar",mu:45,sd:14,base:.28,inc:.1},
+  belleza:{n:"Belleza y cuidado personal",mu:30,sd:12,base:.30,inc:.1},
+  hogar:{n:"Hogar y organización",mu:40,sd:14,base:.32,inc:.1},
+  cocina:{n:"Cocina",mu:42,sd:14,base:.28,inc:.05},
+  tecnologia:{n:"Tecnología y gadgets",mu:27,sd:10,base:.30,inc:.2},
+  fitness:{n:"Fitness y deporte",mu:28,sd:9,base:.24,inc:.15},
+  mascotas:{n:"Mascotas",mu:33,sd:12,base:.22,inc:.1},
+  bebes:{n:"Bebés y maternidad",mu:29,sd:6,base:.14,inc:.05},
+  moda:{n:"Moda y accesorios",mu:26,sd:9,base:.30,inc:.1},
+  auto:{n:"Carros y motos",mu:35,sd:12,base:.18,inc:.15},
+  juguetes:{n:"Juguetes y niños",mu:36,sd:8,base:.18,inc:.05},
+  oficina:{n:"Oficina y estudio",mu:30,sd:10,base:.20,inc:.15}
+};
+const SLIDERS=[
+  ["wow","Efecto WOW / viralidad",7,"¿La gente se detiene a mirar el video y lo comparte?"],
+  ["problema","Resuelve un problema real",7,"¿Alivia un dolor, ahorra tiempo o dinero?"],
+  ["calidad","Calidad del producto",6,"Baja calidad = devoluciones y malas reseñas."],
+  ["diferencia","Diferenciación",6,"¿Es difícil conseguirlo en tiendas físicas o Mercado Libre?"],
+  ["competencia","Saturación del mercado",5,"10 = todo el mundo lo está vendiendo."],
+  ["creativo","Calidad de tus anuncios",6,"Videos, ganchos y página de venta."]
+];
+const EST_P=[.22,.33,.27,.11,.04,.03], EST_INC=[1.1,1.7,2.8,4.8,7.5,11]; // ingreso mensual hogar, millones COP
+const AGE_B=[[18,24],[25,34],[35,44],[45,54],[55,65]];
+const ageBucket=a=>a<25?0:a<35?1:a<45?2:a<55?3:4;
+
+/* ---------- formulario ---------- */
+$("#cat").innerHTML=Object.entries(CATS).map(([k,c])=>`<option value="${k}">${c.n}</option>`).join("");
+$("#sliders").innerHTML=SLIDERS.map(([id,n,v,h])=>
+  `<label class="sl"><span>${n}</span><b id="${id}V">${v}</b><input id="${id}" type="range" min="1" max="10" value="${v}"><span class="h">${h}</span></label>`).join("");
+SLIDERS.forEach(([id])=>$("#"+id).addEventListener("input",e=>$("#"+id+"V").textContent=e.target.value));
+
+/* campo del modelo ↔ id del formulario; "s" texto, "b" casilla, número = escala (100 para porcentajes) */
+const FIELDS=[["name","nombre","s"],["cat","cat","s"],["price","precio"],["cost","costo"],["perceived","percibido"],["ship","flete"],
+  ["cod","cod",100],["rr","rechazo",100],["fee","comision",100],
+  ["p2","precio2"],["p3","precio3"],["upPrice","upPrecio"],["upCost","upCosto"],["upTake","upTasa",100],
+  ["wow","wow"],["prob","problema"],["qual","calidad"],["diff","diferencia"],["comp","competencia"],["crea","creativo"],
+  ["budget","presupuesto"],["cpm","cpm"],["days","dias"],["ageMin","edadMin"],["ageMax","edadMax"],["fixed","fijos"],
+  ["rep","recompra",100],["cycle","ciclo"],["autoscale","escalar","b"],
+  ["realCTR","ctrReal",100],["realCVR","cvrReal",100],["market","mercado"],["N","agentes"],["runs","corridas"]];
+const OPTIONAL=new Set(["p2","p3","upPrice","upCost","realCTR","realCVR"]);
+function readP(){
+  const P={};
+  for(const [k,id,t] of FIELDS){const el=$("#"+id);
+    if(t==="s")P[k]=el.value.trim();else if(t==="b")P[k]=el.checked;
+    else{const v=parseFloat(String(el.value).replace(",","."));P[k]=(isFinite(v)?v:0)/(t||1)}}
+  P.name=P.name||"Producto";
+  P.cod=clamp(P.cod,0,1);P.rr=clamp(P.rr,0,.9);P.fee=clamp(P.fee,0,.3);P.upTake=clamp(P.upTake,0,1);
+  P.days=Math.round(clamp(P.days,7,120));P.rep=clamp(P.rep,0,1);P.cycle=Math.round(clamp(P.cycle,1,120));P.market=Math.max(1e4,P.market);
+  return P;
+}
+function setForm(P){
+  for(const [k,id,t] of FIELDS){const el=$("#"+id),v=P[k];
+    if(t==="b"){el.checked=v!==false;continue}
+    if(t==="s"){if(v!=null)el.value=v;continue}
+    if(v==null||(OPTIONAL.has(k)&&!v)){if(OPTIONAL.has(k))el.value="";continue}
+    el.value=+(v*(t||1)).toFixed(4);
+  }
+  SLIDERS.forEach(([id])=>$("#"+id+"V").textContent=$("#"+id).value);
+  updateOffer();
+}
+
+/* ---------- oferta: qué parte de los clientes elige cada opción y cuánto deja cada pedido ---------- */
+function offer(P){
+  const d2=P.p2>0?1-P.p2/(2*P.price):0,d3=P.p3>0?1-P.p3/(3*P.price):0;
+  let s2=P.p2>0?(d2<=0?.02:clamp(.08+1.3*d2,.03,.55)):0,s3=P.p3>0?(d3<=0?.01:clamp(.03+.9*d3,.01,.35)):0;
+  if(s2+s3>.7){const k=.7/(s2+s3);s2*=k;s3*=k}
+  const s1=1-s2-s3,units=s1+2*s2+3*s3,up=P.upPrice>0?P.upTake:0;
+  return {s1,s2,s3,units,up,
+    aov:s1*P.price+s2*P.p2+s3*P.p3+up*P.upPrice,
+    cogs:units*P.cost+up*(P.upCost||0),
+    boost:Math.min(.35,.6*Math.max(d2,d3,0))}; // un combo atractivo también convence a más gente
+}
+function updateOffer(){
+  const P=readP(),o=offer(P),parts=[];
+  if(!(P.price>0)){$("#offerTxt").textContent="Pon el precio de venta para ver el ticket promedio.";return}
+  if(o.s2)parts.push(`${pct(o.s2)} lleva 2`);if(o.s3)parts.push(`${pct(o.s3)} lleva 3`);if(o.up)parts.push(`${pct(o.up)} agrega el adicional`);
+  $("#offerTxt").innerHTML=parts.length?`Ticket promedio estimado: <b>${fmt$(o.aov)}</b> (${num(o.units,2)} unidades por pedido). ${parts.join(" · ")}.`:
+    `Sin oferta: cada pedido es de <b>${fmt$(P.price)}</b>. Prueba un precio por 2 unidades para ver cuánto sube.`;
+}
+document.querySelectorAll("#precio,#costo,#precio2,#precio3,#upPrecio,#upCosto,#upTasa").forEach(el=>el.addEventListener("input",updateOffer));
+
+/* ---------- la sociedad ---------- */
+const FIRST=["Laura","Andrés","Valentina","Juan","Camila","Santiago","Daniela","Carlos","Natalia","Felipe","Paola","Sebastián","Luisa","Diego","Mariana","Jorge","Ana","Miguel","Sara","Julián","Alejandra","Óscar","Diana","Mateo"];
+const CITY=["Bogotá","Medellín","Cali","Barranquilla","Bucaramanga","Pereira","Cartagena","Cúcuta","Ibagué","Manizales"];
+
+function makeSociety(N,cat,seed){
+  const r=rng(seed),C=CATS[cat],K=10;
+  const P={N,K,age:new Float32Array(N),est:new Uint8Array(N),inc:new Float32Array(N),int:new Float32Array(N),
+    ps:new Float32Array(N),imp:new Float32Array(N),cod:new Float32Array(N),infl:new Float32Array(N),
+    nb:new Int32Array(N*K),infN:new Float32Array(N),u:new Float32Array(N),name:[],city:[]};
+  for(let i=0;i<N;i++){
+    const age=18+47*Math.pow(r(),1.25);
+    let u=r(),e=0;while(e<5&&u>EST_P[e]){u-=EST_P[e];e++}
+    P.age[i]=age;P.est[i]=e;
+    P.inc[i]=EST_INC[e]*1e6*Math.exp(.35*gauss(r));
+    P.int[i]=clamp(C.base+.4*Math.exp(-.5*((age-C.mu)/C.sd)**2)+C.inc*(e-2)/3+.18*gauss(r),0,1);
+    P.ps[i]=clamp(.95-.13*e+.12*gauss(r),.1,1.2);
+    P.imp[i]=clamp(.65-.008*(age-18)+.18*gauss(r),0,1);
+    P.cod[i]=clamp(.9-.13*e+.1*gauss(r),0,1);
+    P.infl[i]=Math.min(8,1/Math.pow(r(),.45));P.u[i]=r();
+    P.name.push(FIRST[Math.floor(r()*FIRST.length)]);P.city.push(CITY[Math.floor(r()*CITY.length)]);
+  }
+  // red de mundo pequeño con homofilia: anillo ordenado por estrato y edad, con conexiones al azar
+  const order=[...Array(N).keys()].map(i=>[i,P.est[i]*100+P.age[i]+gauss(r)*6]).sort((a,b)=>a[1]-b[1]).map(x=>x[0]);
+  for(let p=0;p<N;p++){
+    const i=order[p];let s=0;
+    for(let k=0;k<K;k++){
+      const off=(k>>1)+1,j=r()<.12?Math.floor(r()*N):order[(p+(k&1?off:-off)+N)%N];
+      P.nb[i*K+k]=j;s+=P.infl[j];
+    }
+    P.infN[i]=1/s;
+  }
+  return P;
+}
+
+/* utilidad base de un agente frente al producto (sin prueba social) y sus componentes */
+function terms(P,S,i,price){
+  const vr=P.perceived>0?P.perceived/price:1, afford=Math.min(3,price/(S.inc[i]*.08));
+  return {interes:3.2*(S.int[i]-.5),valor:1.3*Math.log(vr),precio:-1.4*S.ps[i]*afford,
+    impulso:1.0*(S.imp[i]-.5),contra:.8*S.cod[i]*(P.cod-.6),
+    producto:.22*(P.prob-5)+.12*(P.qual-5)+.18*(P.diff-5)-.18*(P.comp-5)+.12*(P.crea-5)};
+}
+function utility(P,S,i,price){const t=terms(P,S,i,price);return -2.3+t.interes+t.valor+t.precio+t.impulso+t.contra+t.producto}
+
+/* contribución esperada por pedido antes de anuncios (lo máximo que puedes pagar por venta) */
+function econ(P,M){
+  const vr=P.perceived>0?P.perceived/P.price:1;
+  const dissat=clamp(.03+.022*(10-P.qual)+.12*Math.max(0,1/vr-1),.02,.6), ret=dissat*.35;
+  const cr=P.cod*clamp(P.rr*(M?M.rr:1),0,.9),o=offer(P);
+  const c0=(1-cr)*((1-ret)*o.aov*(1-P.fee)-o.cogs+ret*o.cogs*.5-ret*P.ship)-P.ship-cr*P.ship;
+  return {dissat,ret,cr,c0,aov:o.aov,cogs:o.cogs,boost:o.boost,units:o.units};
+}
+
+/* una corrida de la sociedad durante P.days días */
+function simulate(P,S,M,rec,refPrice){
+  const N=S.N,K=S.K,w=P.market/N,days=P.days;
+  const adopt=new Float32Array(N),talk=new Float32Array(N),freq=new Float32Array(N),U0=new Float32Array(N),tw=new Float32Array(N),ctrI=new Float32Array(N);
+  const {dissat,ret,cr,c0,aov,cogs,boost}=econ(P,M);
+  let R=0,inT=0,sT=0,ctrN=0;
+  for(let i=0;i<N;i++){
+    const t=S.age[i]>=P.ageMin&&S.age[i]<=P.ageMax;
+    U0[i]=utility(P,S,i,P.price)+boost;
+    tw[i]=(t?1:.08)*(.6+.8*S.int[i]);R+=tw[i]*w;
+    ctrI[i]=.4+1.2*S.int[i];
+    if(t){inT++;ctrN+=ctrI[i];sT+=sig(refPrice?utility(P,S,i,refPrice)+boost:U0[i])}
+  }
+  inT=Math.max(1,inT);
+  // learnCtr / learnCvr: correcciones aprendidas de tus ventas reales (1 si no hay)
+  const ctrBase=(P.realCTR>0?P.realCTR/(ctrN/inT):(.002+.0016*(P.crea+P.wow)/2)*(P.learnCtr||1))*M.ctr;
+  const cvrMax=(P.realCVR>0?P.realCVR/(sT/inT):.08*(P.learnCvr||1))*M.cvr;
+  const q=(.01+.15*Math.pow(P.wow/10,3)+.02*P.qual/10)*M.viral;
+
+  const o={orders:[],spend:[],rev:[],profit:[],cum:[],org:0,adB:0,byEst:new Float64Array(6),byAge:new Float64Array(5),states:rec?[]:null};
+  let clk=0,budget=P.budget,cumI=0,totO=0,totB=0,totU=0,cum=0,stopDay=0,peak=P.budget,sumRev=0,sumSpend=0,repO=0;
+  const happy=[];
+  for(let d=0;d<days;d++){
+    const cpm=P.cpm*M.cpm*(1+.08*cumI/R);
+    const I=budget>0?budget/cpm*1000:0;cumI+=I;
+    const bad=totB>0?totU/totB:0;
+    const proof=Math.min(.4,.12*Math.log(1+totO/40))-2.5*bad*Math.min(1,totB/30);
+    let newB=0,orgB=0;
+    for(let i=0;i<N;i++){
+      const rem=1-adopt[i];if(rem<=0)continue;
+      const imp=I*tw[i]/R;freq[i]+=imp;
+      const s=sig(U0[i]+proof);
+      const ctr=Math.min(.25,ctrBase*ctrI[i]/(1+freq[i]/3));
+      const ci=Math.min(1,imp*ctr);clk+=ci*rem*w;
+      const pAd=Math.min(1,ci*cvrMax*s);
+      const b=i*K;let nb=0;for(let k=0;k<K;k++){const j=S.nb[b+k];nb+=talk[j]*S.infl[j]}
+      const pOrg=Math.min(1,q*(.4*talk[i]+.6*nb*S.infN[i])*s*S.int[i]*(1-bad));
+      const p=1-(1-pAd)*(1-pOrg);if(p<=0)continue;
+      const nbuy=rem*p;adopt[i]+=nbuy;talk[i]+=nbuy;
+      const people=nbuy*w;newB+=people;orgB+=people*pOrg/(pAd+pOrg);
+      o.byEst[S.est[i]]+=people;o.byAge[ageBucket(S.age[i])]+=people;
+    }
+    for(let i=0;i<N;i++)talk[i]*=.9; // el voz a voz se apaga: cada comprador habla sobre todo sus primeros días
+    happy[d]=newB*(1-dissat);
+    const rep=P.rep>0&&d>=P.cycle?happy[d-P.cycle]*P.rep:0;
+    const orders=newB+rep;
+    totB+=newB;totU+=newB*dissat;totO+=orders;o.org+=orgB;o.adB+=newB-orgB;repO+=rep;
+    const rej=orders*cr,deliv=orders-rej,rt=deliv*ret,sold=deliv-rt;
+    const rev=sold*aov,cogsD=deliv*cogs-rt*cogs*.5,shipC=(orders+rej+rt)*P.ship,fees=rev*P.fee,spend=I>0?budget:0;
+    const prof=rev-cogsD-shipC-fees-spend-P.fixed/30;
+    cum+=prof;sumRev+=rev;sumSpend+=spend;
+    o.orders.push(orders);o.spend.push(spend);o.rev.push(rev);o.profit.push(prof);o.cum.push(cum);
+    // para el mapa: cada punto pinta un estado al azar (fijo por agente) con la probabilidad esperada en su grupo
+    if(rec){const st=new Uint8Array(N);for(let i=0;i<N;i++){const bu=adopt[i]*w,u=S.u[i];
+      st[i]=u<bu*dissat?3:u<bu?2:u<1-Math.exp(-freq[i])?1:0}o.states.push(st)}
+    if(P.autoscale&&budget>0&&d>=2&&(d+1)%3===0){
+      let o3=0,s3=0;for(let k=d-2;k<=d;k++){o3+=o.orders[k];s3+=o.spend[k]}
+      const cpa=o3>0?s3/o3:Infinity;
+      if(cpa<.7*c0)budget=Math.min(budget*1.3,P.budget*10);
+      else if(cpa>1.1*c0){budget*=.7;if(budget<P.budget*.3){budget=0;stopDay=d+1}}
+      peak=Math.max(peak,budget);
+    }
+  }
+  return Object.assign(o,{clicks:clk,profit:cum,rev:sumRev,spend:sumSpend,totO,totB,repO,c0,dissat,ret,cr,stopDay,peak,
+    roas:sumSpend>0?sumRev/sumSpend:0,cpa:totO>0?sumSpend/totO:Infinity,orgShare:totB>0?o.org/totB:0,avgFreq:cumI/R});
+}
+
+function drawMults(n,seed,P){
+  const r=rng(seed),cal=P.realCTR>0,calv=P.realCVR>0,out=[],sh=Math.max(.5,1/Math.sqrt(1+(P.learnN||0)/2));
+  for(let k=0;k<n;k++)out.push({ctr:Math.exp((cal?.08:.3*sh)*gauss(r)),cvr:Math.exp((calv?.1:.35*sh)*gauss(r)),
+    cpm:Math.exp(.2*gauss(r)),viral:Math.exp(.5*gauss(r)),rr:Math.exp(.2*gauss(r))});
+  return out;
+}
+
+/* ---------- orquestación ---------- */
+let last=null,socAnim=null;
+$("#run").addEventListener("click",()=>{setDirty(false);run()});
+["#recalc","#dirtyRecalc"].forEach(s=>$(s).addEventListener("click",()=>{["#recalc","#dirtyRecalc"].forEach(x=>{$(x).disabled=true;$(x).textContent="Recalculando…"});recalc()}));
+
+/* recalcular: vuelve a simular con lo que hay en el formulario; el aviso fijo aparece si cambias datos después de simular */
+let dirty=false;
+function setDirty(v){dirty=v;$("#dirtyBar").hidden=!v||!last}
+document.addEventListener("input",e=>{if(last&&e.target.closest("section.card")&&!e.target.closest("#aiCard,#metaCard,#out")&&e.target.id&&FIELDS.some(f=>f[1]===e.target.id))setDirty(true)});
+document.addEventListener("change",e=>{if(last&&e.target.id&&FIELDS.some(f=>f[1]===e.target.id))setDirty(true)});
+async function recalc(){setDirty(false);await run();$("#out").scrollIntoView({behavior:"smooth",block:"start"})}
+async function run(){
+  const P=applyLearning(readP());
+  if(!(P.price>0)||!(P.cpm>0)){alert("Revisa el precio y el CPM.");return}
+  if(P.ageMin>=P.ageMax){alert("La edad mínima debe ser menor que la máxima.");return}
+  const btn=$("#run"),bar=$("#prog i");btn.disabled=true;$("#prog").hidden=false;
+  const setP=f=>{bar.style.width=(f*100)+"%";btn.textContent="Simulando… "+Math.round(f*100)+" %"};
+  try{
+    await tick();
+    const S=makeSociety(P.N,P.cat,12345),Ms=drawMults(P.runs,777,P),res=[];
+    for(let k=0;k<P.runs;k++){res.push(simulate(P,S,Ms[k],false));if(k%4===3){setP(.6*(k+1)/P.runs);await tick()}}
+    const profits=res.map(x=>x.profit),med=median(profits);
+    let rep=0;res.forEach((x,k)=>{if(Math.abs(x.profit-med)<Math.abs(res[rep].profit-med))rep=k});
+    const R=simulate(P,S,Ms[rep],true);
+    last={P,S,res,R,Ms,rep};
+    renderResults();
+    setP(.6);await tick();
+    await priceSweep(P,S,Ms,f=>setP(.6+.2*f));
+    await budgetSweep(P,S,Ms,f=>setP(.8+.2*f));
+    setP(1);
+  }finally{btn.disabled=false;btn.textContent="Simular sociedad";setTimeout(()=>$("#prog").hidden=true,400);
+    ["#recalc","#dirtyRecalc"].forEach(s=>{$(s).disabled=false;$(s).textContent="↻ Recalcular"})}
+}
+
+function scoreOf(P,res){
+  const pProfit=res.filter(x=>x.profit>0).length/res.length;
+  const e=econ(P);
+  const roas=median(res.map(x=>x.roas)),beRoas=e.c0>0?e.aov/e.c0:Infinity;
+  const margin=(e.aov-e.cogs-P.ship)/e.aov,org=median(res.map(x=>x.orgShare));
+  const score=Math.round(100*(.45*pProfit+.25*clamp((roas/beRoas-.6)/1,0,1)+.15*clamp((margin-.2)/.4,0,1)+.15*clamp(org/.35,0,1)));
+  return {pProfit,roas,beRoas,margin,org,score,e};
+}
+function labelOf(s){
+  return s>=75?["🏆 Producto ganador","var(--pos)"]:s>=55?["✅ Prometedor","var(--pos)"]:s>=35?["⚠️ Riesgoso","var(--warn)"]:["❌ No viable","var(--neg)"];
+}
+
+function renderResults(){
+  const {P,S,res,R}=last,sc=scoreOf(P,res),[lab,col]=labelOf(sc.score);
+  last.sc=sc;
+  $("#out").hidden=false;
+  $("#gauge").style.setProperty("--v",sc.score);$("#gauge").style.setProperty("--vc",col);
+  $("#score").textContent=sc.score;$("#label").textContent=lab;
+  const profits=res.map(x=>x.profit),p10=quant(profits,.1),p50=median(profits),p90=quant(profits,.9);
+  $("#summary").innerHTML=`En <b>${pct(sc.pProfit)}</b> de ${res.length} escenarios simulados terminas con ganancia en ${P.days} días. Escenario típico: <b class="${p50>=0?"pos":"neg"}">${fmt$(p50)}</b> (pesimista ${fmtC(p10)} · optimista ${fmtC(p90)}).`+
+    (P.learnN?` <span class="pill on">Ajustado con ${P.learnN} prueba${P.learnN>1?"s":""} real${P.learnN>1?"es":""}</span>`:"");
+  const orders=median(res.map(x=>x.totO)),cpa=median(res.map(x=>x.cpa)),spend=median(res.map(x=>x.spend));
+  const tiles=[
+    ["Pedidos",Math.round(orders).toLocaleString("es-CO"),`${num(orders/P.days)} por día`],
+    ["CPA esperado",isFinite(cpa)?fmt$(cpa):"—",`Equilibrio: ${sc.e.c0>0?fmt$(sc.e.c0):"sin margen"}`],
+    ["ROAS",num(sc.roas,2),`Necesitas ${isFinite(sc.beRoas)?num(sc.beRoas,2):"∞"} para no perder`],
+    ["Inversión en anuncios",fmtC(spend),R.stopDay?`Campaña apagada el día ${R.stopDay}`:`Presupuesto máx. ${fmtC(R.peak)}/día`],
+    ["Ticket promedio",fmt$(sc.e.aov),`${num(sc.e.units,2)} unidades por pedido`],
+    ["Margen bruto",pct(sc.margin),`Precio ${num(P.price/Math.max(1,P.cost),1)}× el costo`],
+    ["Ventas por voz a voz",pct(sc.org),"Compras sin pagar anuncio"]
+  ];
+  $("#tiles").innerHTML=tiles.map(([k,v,s])=>`<div class="tile"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("");
+
+  // curva de utilidad
+  const days=[...Array(P.days).keys()].map(d=>d+1),band=d=>res.map(x=>x.cum[d]);
+  lineChart($("#cProfit"),{x:days,mid:days.map((_,d)=>quant(band(d),.5)),lo:days.map((_,d)=>quant(band(d),.1)),hi:days.map((_,d)=>quant(band(d),.9)),
+    fx:v=>"Día "+v,fy:fmtC,tip:(i,c)=>`Día ${days[i]} · típico ${fmtC(c.mid[i])} · rango ${fmtC(c.lo[i])} a ${fmtC(c.hi[i])}`});
+  histChart($("#cHist"),profits);
+  $("#histTxt").textContent=`Resultado final de cada uno de los ${res.length} escenarios (utilidad a ${P.days} días).`;
+
+  // segmentos
+  const w=P.market/S.N,popE=new Float64Array(6),popA=new Float64Array(5);
+  for(let i=0;i<S.N;i++){popE[S.est[i]]+=w;popA[ageBucket(S.age[i])]+=w}
+  const avg=k=>res.reduce((a,x)=>a.map((v,j)=>v+x[k][j]/res.length),new Array(x0(k)).fill(0));
+  function x0(k){return k==="byEst"?6:5}
+  const bE=avg("byEst"),bA=avg("byAge"),totB=bE.reduce((a,b)=>a+b,0)||1;
+  const rows=[...AGE_B.map((b,j)=>[`${b[0]}–${b[1]} años`,bA[j],popA[j]]),null,...bE.map((v,j)=>[`Estrato ${j+1}`,v,popE[j]])];
+  const mx=Math.max(...rows.filter(Boolean).map(r=>r[1]));
+  $("#segTable").innerHTML=`<tr><th>Segmento</th><th class="r">Compradores</th><th class="r">% de ventas</th><th></th></tr>`+
+    rows.map(r=>r?`<tr><td>${r[0]}</td><td class="r">${Math.round(r[1]).toLocaleString("es-CO")}</td><td class="r">${pct(r[1]/totB)}</td><td><div class="mini"><i style="width:${mx?100*r[1]/mx:0}%"></i></div></td></tr>`:
+      `<tr><td colspan="4" style="border:0;padding:4px"></td></tr>`).join("");
+
+  renderVoices();renderDiag();setupSociety();
+}
+
+/* ---------- voces ---------- */
+function renderVoices(){
+  const {P,S}=last,r=rng(99),target=[];
+  for(let i=0;i<S.N;i++)if(S.age[i]>=P.ageMin&&S.age[i]<=P.ageMax)target.push(i);
+  const pick=[];for(let k=0;k<6&&target.length;k++)pick.push(target[Math.floor(r()*target.length)]);
+  const POS={interes:"Justo lo que buscaba, me encanta este tipo de cosas.",valor:"¡A ese precio es una ganga!",
+    impulso:"Lo vi y lo quise de una 😅",producto:"Me resolvería un problema que tengo hace rato.",contra:"Si me lo traen y pago al recibir, lo pido."};
+  const NEG={interes:"No es algo que me interese, la verdad.",valor:"Lo he visto más barato, no creo que valga eso.",
+    precio:"Está muy caro para mi bolsillo este mes.",producto:"Hay muchos parecidos, no veo por qué este.",
+    contra:"No pago por adelantado en internet, solo contraentrega.",impulso:"Lo guardo y lo pienso… (y se le olvida)."};
+  $("#voices").innerHTML=pick.map(i=>{
+    const t=terms(P,S,i,P.price),s=sig(utility(P,S,i,P.price));
+    const ent=Object.entries(t),buy=s>=.25;
+    const k=buy?ent.sort((a,b)=>b[1]-a[1])[0][0]:ent.sort((a,b)=>a[1]-b[1])[0][0];
+    const quote=(buy?POS:NEG)[k]||(buy?POS.interes:NEG.interes);
+    return `<div class="voice"><span class="who">${S.name[i]}, ${Math.round(S.age[i])} años · ${S.city[i]} · estrato ${S.est[i]+1}</span>
+      <q>${quote}</q><span class="small">Disposición a comprar: <b class="${buy?"pos":"neg"}">${pct(s)}</b></span></div>`}).join("");
+}
+
+/* ---------- diagnóstico ---------- */
+function renderDiag(){
+  const {P,S,res,sc}=last,out=[];
+  const add=(lvl,t,d)=>out.push([lvl,t,d]);
+  const mult=P.price/Math.max(1,P.cost);
+  if(mult<2.5)add("bad","Margen muy bajo",`Vendes a ${num(mult,1)}× el costo. Con anuncios pagos y contraentrega lo sano es 3× o más.`);
+  else if(mult<3)add("warn","Margen justo",`Vendes a ${num(mult,1)}× el costo; cualquier subida del CPM te deja en pérdida.`);
+  else add("ok","Buen margen",`Vendes a ${num(mult,1)}× el costo.`);
+  const cpa=median(res.map(x=>x.cpa));
+  if(sc.e.c0<=0)add("bad","No hay plata para anuncios","Después de costo, flete, rechazos y comisiones no te queda nada por pedido. Sube el precio o baja costos.");
+  else if(cpa>sc.e.c0)add("bad","Cada venta te cuesta más de lo que deja",`CPA esperado ${fmt$(cpa)} vs. máximo tolerable ${fmt$(sc.e.c0)}.`);
+  else add("ok","El CPA cabe en el margen",`CPA esperado ${fmt$(cpa)} vs. máximo tolerable ${fmt$(sc.e.c0)}.`);
+  const lostCod=P.cod*P.rr*2*P.ship;
+  if(P.cod*P.rr>.12)add("warn","Los rechazos de contraentrega pesan",`Con ${pct(P.cod*P.rr)} de pedidos rechazados pierdes en promedio ${fmt$(lostCod)} de flete por pedido. Confirma pedidos por WhatsApp antes de despachar.`);
+  if(P.perceived>0&&P.price>P.perceived)add("bad","Precio por encima del valor percibido","La gente lo ve más barato en otras partes: baja el precio o muestra por qué el tuyo es mejor.");
+  let caro=0,n=0;for(let i=0;i<S.N;i++)if(S.age[i]>=P.ageMin&&S.age[i]<=P.ageMax){n++;if(terms(P,S,i,P.price).precio<-1)caro++}
+  if(n&&caro/n>.35)add("warn","Precio alto para tu público",`${pct(caro/n)} de tu público objetivo siente que el precio pesa mucho en su ingreso del mes.`);
+  if(sc.org>.25)add("ok","Tiene potencial viral",`${pct(sc.org)} de las compras llegan por voz a voz: aprovecha contenido orgánico en TikTok/Reels.`);
+  else if(P.wow<5)add("warn","Poco efecto WOW","Casi todo depende de anuncios pagos. Busca un ángulo visual más llamativo.");
+  const dis=sc.e.dissat;
+  if(dis>.15)add("warn","Riesgo de malas reseñas",`Se estima ${pct(dis)} de clientes insatisfechos, lo que frena la prueba social y genera devoluciones.`);
+  if(last.R.avgFreq>.6)add("warn","Cansancio publicitario","Tu audiencia ve el anuncio muchas veces: renueva creativos cada 5–7 días o amplía el público.");
+  if(P.comp>=8)add("warn","Mercado saturado","Si todos lo venden, compites por precio. Cambia el ángulo, haz un kit o una oferta 2×1.");
+  if(!(P.p2>0)&&!(P.p3>0)&&!(P.upPrice>0)){
+    const p2=Math.round(P.price*1.6/100)*100,a=econ(P).c0,b=econ({...P,p2}).c0,sh=offer({...P,p2}).s2;
+    if(b>a)add("warn","Agrega una oferta de 2 unidades",`Por ejemplo 2 por ${fmt$(p2)}: se estima que ${pct(sh)} la elegiría y lo que te deja cada pedido pasaría de ${fmt$(a)} a ${fmt$(b)}, porque el flete y el riesgo de rechazo se pagan una sola vez.`);
+  }else{const e0=econ({...P,p2:0,p3:0,upPrice:0}).c0,e1=sc.e.c0;
+    if(e1>e0)add("ok","La oferta sube tu margen",`Cada pedido deja ${fmt$(e1)} antes de anuncios, frente a ${fmt$(e0)} vendiendo una sola unidad.`)}
+  const rank={bad:0,warn:1,ok:2};out.sort((a,b)=>rank[a[0]]-rank[b[0]]);
+  const sym={ok:"✓",warn:"!",bad:"✕"};
+  $("#diag").innerHTML=out.map(([l,t,d])=>`<li><span class="ic ${l}" aria-label="${l}">${sym[l]}</span><span><b>${t}</b><span class="muted">${d}</span></span></li>`).join("");
+  last.diagExtra=out;
+}
+
+/* ---------- precio óptimo ---------- */
+async function priceSweep(P,S,Ms,prog){
+  const f=[];for(let x=.6;x<=1.81;x+=.1)f.push(+x.toFixed(2));
+  const runs=Math.min(12,Ms.length),pts=[];
+  for(let k=0;k<f.length;k++){
+    const P2={...P,price:Math.round(P.price*f[k]/100)*100,p2:P.p2*f[k],p3:P.p3*f[k]},pr=[];
+    for(let j=0;j<runs;j++)pr.push(simulate(P2,S,Ms[j],false,P.price).profit);
+    pts.push([P2.price,median(pr)]);prog((k+1)/f.length);await tick();
+  }
+  const best=pts.reduce((a,b)=>b[1]>a[1]?b:a),cur=pts[f.indexOf(1)];
+  lineChart($("#cPrice"),{x:pts.map(p=>p[0]),mid:pts.map(p=>p[1]),fx:fmtC,fy:fmtC,mark:pts.indexOf(best),
+    tip:(i,c)=>`Precio ${fmt$(c.x[i])} → utilidad típica ${fmtC(c.mid[i])}`});
+  const diff=best[0]/P.price-1;
+  $("#priceTxt").innerHTML=best[1]<=0?`Ningún precio entre ${fmt$(pts[0][0])} y ${fmt$(pts[pts.length-1][0])} deja ganancia en el escenario típico: el problema no es el precio sino el atractivo, el costo o los anuncios.`:Math.abs(diff)<.05?`Tu precio actual (${fmt$(P.price)}) ya está cerca del óptimo para esta sociedad.`:
+    `La utilidad típica se maximiza cerca de <b>${fmt$(best[0])}</b> (${diff>0?"+":""}${pct(diff)} frente a tu precio): ${fmtC(best[1])} vs ${fmtC(cur[1])} a ${fmt$(P.price)}.`;
+}
+
+/* ---------- cuánto invertir: barrido de presupuesto diario fijo ---------- */
+async function budgetSweep(P,S,Ms,prog){
+  const runs=Math.min(12,Ms.length),mults=[.25,.5,.75,1,1.5,2,3,4,6],rows=[];
+  const round=v=>v>=100000?Math.round(v/10000)*10000:Math.round(v/5000)*5000;
+  const levels=[...new Set(mults.map(m=>Math.max(10000,round(P.budget*m))))];
+  for(let k=0;k<levels.length;k++){
+    const Q={...P,budget:levels[k],autoscale:false},rs=[];
+    for(let j=0;j<runs;j++)rs.push(simulate(Q,S,Ms[j],false));
+    const pr=rs.map(r=>r.profit);
+    rows.push({b:levels[k],mid:median(pr),lo:quant(pr,.1),hi:quant(pr,.9),p:pr.filter(v=>v>0).length/pr.length,
+      orders:median(rs.map(r=>r.totO)),roas:median(rs.map(r=>r.roas)),cpa:median(rs.map(r=>r.cpa)),spend:median(rs.map(r=>r.spend))});
+    prog((k+1)/levels.length);await tick();
+  }
+  const e=econ(P),c0=e.c0,best=rows.reduce((a,b)=>b.mid>a.mid?b:a);
+  // recomendado: entre los presupuestos cuyo peor caso no pierde plata, el menor que logra 80 % de la mejor utilidad de ese grupo
+  const winning=best.mid>0,safeRows=rows.filter(r=>r.lo>=0&&r.mid>0);
+  const pool=safeRows.length?safeRows:rows.filter(r=>r.mid>0),top=pool.length?pool.reduce((a,b)=>b.mid>a.mid?b:a):best;
+  const rec=winning?pool.find(r=>r.mid>=.8*top.mid)||top:best;
+  // prueba: ~1 CPA de equilibrio por día durante 4 días (mínimo 30 mil/día)
+  const testDay=Math.max(30000,Math.round(Math.max(c0,0)/5000)*5000||30000),testDays=4,kill=Math.max(c0,0)*2;
+  // capital: ~14 días de anuncios antes de que llegue el recaudo + costos fijos + reserva de fletes por rechazos
+  const days14=Math.min(14,P.days),ordersDay=rec.orders/P.days;
+  const capital=Math.round((winning?rec.b*days14+P.fixed+ordersDay*days14*e.cr*P.ship*2:testDay*testDays+P.fixed)/1000)*1000;
+  $("#budPill").textContent=winning?"Hay presupuesto rentable":"Solo prueba";$("#budPill").classList.toggle("on",winning);
+  const T=[["Fase 1 · Prueba",`${fmt$(testDay)}/día`,`${testDays} días = ${fmt$(testDay*testDays)} en total`],
+    winning?["Fase 2 · Recomendado",`${fmt$(rec.b)}/día`,`Utilidad típica ${fmtC(rec.mid)} · gana en ${pct(rec.p)}${rec.lo>=0?" · el peor caso no pierde":""}`]
+           :["Fase 2 · Escalar","No escalar",`Ningún presupuesto deja ganancia típica`],
+    winning&&best.b!==rec.b?["Máximo con más riesgo",`${fmt$(best.b)}/día`,`Utilidad típica ${fmtC(best.mid)} · peor caso ${fmtC(best.lo)}`]:null,
+    ["Capital que necesitas",fmt$(capital),winning?"Anuncios de ~2 semanas antes del recaudo + fijos + reserva de fletes":"Solo la prueba y los costos fijos"]].filter(Boolean);
+  $("#budTiles").innerHTML=T.map(([k,v,s])=>`<div class="tile"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("");
+  lineChart($("#cBud"),{x:rows.map(r=>r.b),mid:rows.map(r=>r.mid),lo:rows.map(r=>r.lo),hi:rows.map(r=>r.hi),fx:fmtC,fy:fmtC,mark:winning?rows.indexOf(rec):null,
+    tip:(i,c)=>`${fmtC(c.x[i])}/día → típico ${fmtC(c.mid[i])} · rango ${fmtC(c.lo[i])} a ${fmtC(c.hi[i])}`});
+  $("#budTable").innerHTML=`<tr><th>Presupuesto diario</th><th class="r">Inversión total</th><th class="r">Pedidos</th><th class="r">CPA</th><th class="r">ROAS</th><th class="r">Utilidad típica</th><th class="r">Peor caso</th><th class="r">Gana en</th></tr>`+
+    rows.map(r=>`<tr${winning&&r===rec?' style="font-weight:700"':""}><td>${fmt$(r.b)}${winning&&r===rec?" ★":""}${r.b===P.budget?' <span class="muted small">(el tuyo)</span>':""}</td><td class="r">${fmtC(r.spend)}</td><td class="r">${Math.round(r.orders)}</td>
+      <td class="r">${isFinite(r.cpa)?fmtC(r.cpa):"—"}</td><td class="r">${num(r.roas,2)}</td><td class="r ${r.mid>=0?"pos":"neg"}">${fmtC(r.mid)}</td>
+      <td class="r ${r.lo>=0?"pos":"neg"}">${fmtC(r.lo)}</td><td class="r">${pct(r.p)}</td></tr>`).join("");
+  const rules=[
+    ["ok","Empieza con la prueba",`Invierte ${fmt$(testDay)} diarios durante ${testDays} días con 2 o 3 videos distintos. Tu CPA máximo (lo que puedes pagar por venta sin perder) es ${c0>0?fmt$(c0):"cero: este producto no aguanta publicidad"}.`],
+    ["bad","Apaga a tiempo",c0>0?`Si gastas ${fmt$(kill)} en un anuncio sin ninguna venta, apágalo. Si después de 3 días el CPA está por encima de ${fmt$(c0)}, cambia el video o el ángulo antes de seguir.`:"Con estos números cada venta pierde plata: ajusta precio, costo u oferta antes de pautar."],
+    ["warn","Escala de a poco",winning?`Si el CPA queda por debajo de ${fmt$(Math.round(c0*.7))}, sube el presupuesto 20–30 % cada 2 o 3 días hasta llegar a ${fmt$(rec.b)}/día. Subirlo de golpe reinicia el aprendizaje del anuncio y encarece las ventas.`:"No pases de la fase de prueba hasta que tus números reales muestren un CPA por debajo del de equilibrio."],
+    ["warn","Cuida la caja",`Con contraentrega el recaudo llega días después de la entrega: ten disponible ${fmt$(capital)} para no quedarte sin plata para anuncios mientras te pagan.`]];
+  $("#budRules").innerHTML=rules.map(([l,t,d])=>`<li><span class="ic ${l}">${{ok:"✓",warn:"!",bad:"✕"}[l]}</span><span><b>${t}</b><span class="muted">${d}</span></span></li>`).join("");
+  last.bud={testDay,testDays,c0,rec:rec.b,winning};renderMeta();
+  const btn=$("#budUse");btn.hidden=!winning||rec.b===P.budget;
+  btn.textContent=`Usar ${fmt$(rec.b)}/día en el formulario`;btn.dataset.v=rec.b;
+}
+$("#budUse").addEventListener("click",e=>{$("#presupuesto").value=e.target.dataset.v;e.target.textContent="Listo: vuelve a simular para ver el resultado";e.target.disabled=true;setTimeout(()=>{e.target.disabled=false},1500)});
+
+/* ---------- archivo de importación para Meta Ads Manager ----------
+   Columnas y valores según la plantilla oficial de importación/exportación de Meta
+   (facebook.com/business/help/1471948569691450). Píxel, evento y medios se eligen después en Ads Manager. */
+const META_COLS=["Campaign Name","Campaign Status","Campaign Objective","Buying Type","Campaign Spend Limit",
+  "Ad Set Name","Ad Set Status","Ad Set Daily Budget","Countries","Age Min","Age Max","Optimization Goal","Billing Event",
+  "Ad Name","Ad Status","Creative Type","Link Object ID","Title","Body","Link Description","Link","Display Link","Image","URL Tags"];
+const cut=(t,n)=>{t=String(t).trim().replace(/\s+/g," ");if(t.length<=n)return t;const w=t.slice(0,n+1).lastIndexOf(" ");return (w>n*.5?t.slice(0,w):t.slice(0,n)).replace(/[\s|·,.-]+$/,"")};
+const slug=t=>String(t).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"producto";
+function metaPlan(){
+  if(!last||!last.bud)return null;
+  const {P,res}=last,B=last.bud;
+  // edades donde se concentraron los compradores en la simulación
+  const byAge=res.reduce((a,x)=>a.map((v,j)=>v+x.byAge[j]),[0,0,0,0,0]);
+  const amin=Math.max(18,P.ageMin),amax=Math.min(64,P.ageMax);
+  const segs=AGE_B.map((b,j)=>({lo:Math.max(b[0],amin),hi:Math.min(b[1],amax),v:byAge[j]})).filter(s=>s.lo<s.hi&&s.v>0).sort((a,b)=>b.v-a.v).slice(0,2);
+  const tot=byAge.reduce((a,b)=>a+b,0)||1;
+  const sets=[{name:`Amplio ${amin}-${amax}`,lo:amin,hi:amax,why:"Toda la edad objetivo: Meta busca a los compradores"},
+    ...segs.map(s=>({name:`Edad ${s.lo}-${s.hi}`,lo:s.lo,hi:s.hi,why:`${pct(s.v/tot)} de las compras simuladas`}))];
+  const perSet=Math.max(10000,Math.round(B.testDay/sets.length/1000)*1000);
+  const name=P.name,short=cut(name,25);
+  const offer=P.p2>0?` o lleva 2 por ${fmt$(P.p2)}`:"";
+  const ads=[
+    {angle:"Problema",title:short,body:`¿Te pasa seguido? ${name} es la solución práctica que estabas buscando. Fácil de usar y lo notas desde el primer día.\nPaga al recibir · Envío a toda Colombia.`},
+    {angle:"Oferta",title:cut(P.p2>0?`Lleva 2 por ${fmtC(P.p2)}`:`Solo ${fmtC(P.price)}`,25),body:`${name} a ${fmt$(P.price)}${offer}. Pagas cuando lo recibes en tu casa. Envío a toda Colombia. Unidades limitadas.`},
+    {angle:"Prueba social",title:"Paga al recibir",body:`Lo están pidiendo en todo el país: ${name}. Míralo funcionando en el video y pídelo hoy. Pagas cuando te llegue.`}];
+  return {P,B,sets,perSet,ads,camp:cut(`Prueba | ${name}`,35),spendLimit:B.testDay*B.testDays};
+}
+function renderMeta(){
+  const m=metaPlan();if(!m)return;
+  $("#metaPlan").innerHTML=`<div class="lvl"><b>Campaña: ${esc(m.camp)}</b><span>Objetivo Ventas · Subasta · límite de gasto ${fmt$(m.spendLimit)} (${m.B.testDays} días de prueba) · en pausa</span></div>`+
+    m.sets.map(s=>`<div class="lvl l2"><b>Conjunto: ${esc(s.name)}</b><span>Colombia · ${s.lo}–${s.hi} años · ${fmt$(m.perSet)}/día · ${esc(s.why)}</span><span>3 anuncios: ${m.ads.map(a=>esc(a.angle)).join(", ")}</span></div>`).join("")+
+    `<span class="muted small">${m.sets.length*m.ads.length} anuncios en total. Presupuesto de prueba: ${fmt$(m.perSet*m.sets.length)}/día entre los ${m.sets.length} conjuntos.${m.B.winning?"":" Ojo: la simulación no recomienda escalar este producto; usa esta campaña solo para validarlo."}</span>`;
+}
+function metaCSV(m,link,page){
+  const q=v=>`"${String(v??"").replace(/"/g,'""')}"`,rows=[META_COLS.map(q).join(",")];
+  let host="";try{host=new URL(link).hostname.replace(/^www\./,"")}catch(_){}
+  const tags=`utm_source=facebook&utm_medium=paid&utm_campaign=${slug(m.P.name)}&utm_content={{ad.name}}`;
+  for(const st of m.sets)for(const a of m.ads){
+    const r={"Campaign Name":m.camp,"Campaign Status":"Paused","Campaign Objective":"Sales","Buying Type":"Auction","Campaign Spend Limit":m.spendLimit.toFixed(2),
+      "Ad Set Name":cut(`${st.name} | ${m.P.name}`,35),"Ad Set Status":"Paused","Ad Set Daily Budget":m.perSet.toFixed(2),"Countries":"CO","Age Min":st.lo,"Age Max":st.hi,
+      "Optimization Goal":"OFFSITE_CONVERSIONS","Billing Event":"IMPRESSIONS",
+      "Ad Name":cut(`${a.angle} | ${st.name}`,35),"Ad Status":"Off","Creative Type":page?"Page post ad":"","Link Object ID":page||"",
+      "Title":a.title,"Body":a.body,"Link Description":"Pago contraentrega · Envío nacional","Link":link,"Display Link":host,
+      "Image":`${slug(m.P.name)}-${slug(a.angle)}.jpg`,"URL Tags":tags};
+    rows.push(META_COLS.map(c=>q(r[c])).join(","));
+  }
+  return rows.join("\r\n")+"\r\n";
+}
+async function saveFile(filename,data){
+  const dl=window.claude&&window.claude.use?await window.claude.use("downloads").catch(()=>null):null;
+  if(dl)return dl.save({filename,data});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"text/csv;charset=utf-8"}));a.download=filename;
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);return {status:"saved"};
+}
+function metaMsg(t,bad){$("#metaMsg").textContent=t;$("#metaMsg").className="small"+(bad?" neg":" pos");$("#metaMsg").hidden=!t}
+$("#metaDl").addEventListener("click",async()=>{
+  const m=metaPlan();if(!m){metaMsg("Primero simula el producto.",true);return}
+  const link=$("#metaLink").value.trim(),page=$("#metaPage").value.replace(/\D/g,"");
+  if(!/^https?:\/\/[^\s.]+\.[^\s]+/.test(link)){metaMsg("Pon el enlace completo de tu página de venta, empezando por https://",true);$("#metaLink").focus();return}
+  try{localStorage.setItem("simulador-meta",JSON.stringify({link,page}))}catch(_){}
+  try{await saveFile(`meta-ads-${slug(m.P.name)}.csv`,metaCSV(m,link,page));metaMsg("Archivo listo. Sigue los pasos de \"Cómo importarlo\".")}
+  catch(e){if(e&&e.code==="declined")metaMsg("");else metaMsg("No se pudo descargar el archivo en esta vista ("+(e&&e.code||"error")+").",true)}
+});
+try{const v=JSON.parse(localStorage.getItem("simulador-meta")||"{}");if(v.link)$("#metaLink").value=v.link;if(v.page)$("#metaPage").value=v.page}catch(_){}
+
+/* ---------- gráficos (canvas, sin librerías para funcionar sin internet) ---------- */
+function prepCanvas(cv){
+  const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=+cv.getAttribute("height");
+  cv.style.height=h+"px";cv.width=w*dpr;cv.height=h*dpr;
+  const g=cv.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);g.font="11px "+css("--font");return [g,w,h];
+}
+function niceTicks(lo,hi,n){
+  if(lo===hi){lo-=1;hi+=1}
+  const step0=(hi-lo)/n,mag=Math.pow(10,Math.floor(Math.log10(step0))),err=step0/mag;
+  const step=(err>=5?10:err>=2?5:err>=1.5?2:1)*mag,t=[];
+  for(let v=Math.ceil(lo/step)*step;v<=hi+1e-9;v+=step)t.push(v);return t;
+}
+function tooltip(cv,html,x,y){
+  let t=cv.parentNode.querySelector(".tip");
+  if(!html){if(t)t.remove();return}
+  if(!t){t=document.createElement("div");t.className="tip";cv.parentNode.appendChild(t)}
+  t.innerHTML=html;const w=cv.clientWidth;t.style.left=clamp(x,70,w-70)+"px";t.style.top=y+"px";
+}
+function lineChart(cv,c){
+  cv._c=c;
+  const draw=hi=>{
+    const [g,w,h]=prepCanvas(cv),L=54,Rr=12,T=12,B=26,pw=w-L-Rr,ph=h-T-B;
+    const all=[...c.mid,...(c.lo||[]),...(c.hi||[]),0],ymin=Math.min(...all),ymax=Math.max(...all);
+    const yt=niceTicks(ymin,ymax,4),y0=Math.min(yt[0],ymin),y1=Math.max(yt[yt.length-1],ymax);
+    const xs=c.x,X=i=>L+(xs.length<2?pw/2:pw*i/(xs.length-1)),Y=v=>T+ph*(1-(v-y0)/(y1-y0||1));
+    g.strokeStyle=css("--grid");g.fillStyle=css("--muted");g.lineWidth=1;g.textAlign="right";g.textBaseline="middle";
+    yt.forEach(v=>{g.beginPath();g.moveTo(L,Y(v));g.lineTo(w-Rr,Y(v));g.stroke();g.fillText(c.fy(v),L-6,Y(v))});
+    if(y0<0&&y1>0){g.strokeStyle=css("--muted");g.beginPath();g.moveTo(L,Y(0));g.lineTo(w-Rr,Y(0));g.stroke()}
+    g.textAlign="center";g.textBaseline="top";
+    const step=Math.max(1,Math.ceil(xs.length/6));
+    for(let i=0;i<xs.length;i+=step){g.textAlign=X(i)>w-Rr-30?"right":X(i)<L+30?"left":"center";g.fillText(c.fx(xs[i]),X(i),h-B+8)}
+    const acc=css("--accent");
+    if(c.lo){g.fillStyle=acc;g.globalAlpha=.16;g.beginPath();
+      c.hi.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));
+      for(let i=c.lo.length-1;i>=0;i--)g.lineTo(X(i),Y(c.lo[i]));g.closePath();g.fill();g.globalAlpha=1}
+    g.strokeStyle=acc;g.lineWidth=2;g.lineJoin="round";g.beginPath();
+    c.mid.forEach((v,i)=>i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v)));g.stroke();
+    const dot=(i,r)=>{g.beginPath();g.arc(X(i),Y(c.mid[i]),r,0,7);g.fillStyle=acc;g.fill();g.lineWidth=2;g.strokeStyle=css("--bg");g.stroke()};
+    if(c.mark!=null)dot(c.mark,5);
+    if(hi!=null){g.strokeStyle=css("--muted");g.lineWidth=1;g.setLineDash([3,3]);g.beginPath();g.moveTo(X(hi),T);g.lineTo(X(hi),T+ph);g.stroke();g.setLineDash([]);dot(hi,4)}
+    cv._geo={X,Y,L,pw,n:xs.length};
+  };
+  draw();
+  if(!cv._bound){cv._bound=true;
+    const mv=e=>{const c2=cv._c,gg=cv._geo,rc=cv.getBoundingClientRect(),x=e.clientX-rc.left;
+      const i=clamp(Math.round((x-gg.L)/gg.pw*(gg.n-1)),0,gg.n-1);cv._draw(i);tooltip(cv,c2.tip(i,c2),gg.X(i),gg.Y(c2.mid[i])-8)};
+    cv.addEventListener("pointermove",mv);cv.addEventListener("pointerdown",mv);
+    cv.addEventListener("pointerleave",()=>{cv._draw();tooltip(cv,null)});
+  }
+  cv._draw=draw;
+}
+function histChart(cv,vals){
+  // los bins arrancan en un múltiplo del paso para que $0 siempre sea un borde (ningún bin mezcla pérdidas y ganancias)
+  const vmin=Math.min(...vals),hi=Math.max(...vals),step=(hi-vmin)/12||1,lo=Math.floor(vmin/step)*step,nb=Math.max(1,Math.ceil((hi-lo)/step-1e-9)),bins=[];
+  for(let k=0;k<nb;k++)bins.push({a:lo+k*step,b:lo+(k+1)*step,n:0});
+  vals.forEach(v=>bins[Math.min(nb-1,Math.floor((v-lo)/step))].n++);
+  const draw=hov=>{
+    const [g,w,h]=prepCanvas(cv),L=12,Rr=12,T=10,B=26,pw=w-L-Rr,ph=h-T-B,mx=Math.max(...bins.map(b=>b.n)),bw=pw/nb;
+    g.strokeStyle=css("--grid");g.beginPath();g.moveTo(L,T+ph);g.lineTo(w-Rr,T+ph);g.stroke();
+    bins.forEach((b,k)=>{if(!b.n)return;const x=L+k*bw+1,bh=ph*b.n/mx,y=T+ph-bh,ww=bw-2,r=Math.min(4,ww/2,bh);
+      g.fillStyle=css((b.a+b.b)/2>=0?"--pos":"--neg");g.globalAlpha=hov==null||hov===k?1:.45;
+      g.beginPath();g.moveTo(x,T+ph);g.lineTo(x,y+r);g.arcTo(x,y,x+r,y,r);g.lineTo(x+ww-r,y);g.arcTo(x+ww,y,x+ww,y+r,r);g.lineTo(x+ww,T+ph);g.fill()});
+    g.globalAlpha=1;g.fillStyle=css("--muted");g.textBaseline="top";
+    g.textAlign="left";g.fillText(fmtC(lo),L,h-B+8);g.textAlign="right";g.fillText(fmtC(hi),w-Rr,h-B+8);
+    const z=L+pw*(-lo)/(hi-lo);if(lo<0&&hi>0&&z-L>60&&w-Rr-z>60){g.textAlign="center";g.fillText("$0",z,h-B+8)}
+    cv._bw=bw;cv._L=L;cv._T=T;cv._ph=ph;cv._mx=mx;
+  };
+  draw();cv._draw=draw;cv._bins=bins;
+  if(!cv._bound){cv._bound=true;
+    const mv=e=>{const rc=cv.getBoundingClientRect(),k=clamp(Math.floor((e.clientX-rc.left-cv._L)/cv._bw),0,cv._bins.length-1),b=cv._bins[k];
+      cv._draw(k);tooltip(cv,`${b.n} escenario${b.n===1?"":"s"} entre ${fmtC(b.a)} y ${fmtC(b.b)}`,cv._L+(k+.5)*cv._bw,cv._T+cv._ph*(1-b.n/cv._mx)-6)};
+    cv.addEventListener("pointermove",mv);cv.addEventListener("pointerdown",mv);
+    cv.addEventListener("pointerleave",()=>{cv._draw();tooltip(cv,null)});
+  }
+}
+
+/* ---------- mapa de la sociedad ---------- */
+function setupSociety(){
+  const {P,S,R}=last,sl=$("#day");sl.max=P.days;sl.value=P.days;
+  const lo=Math.log(4e5),hi=Math.log(3e7);
+  last.pos=Array.from({length:S.N},(_,i)=>[(S.age[i]-18)/47,clamp((Math.log(S.inc[i])-lo)/(hi-lo),0,1)]);
+  drawSoc(P.days);
+  $("#socTxt").textContent=`${S.N.toLocaleString("es-CO")} agentes ≈ ${Math.round(P.market/S.N)} personas cada uno`;
+}
+function drawSoc(day){
+  const {S,R,pos}=last,st=R.states[day-1],[g,w,h]=prepCanvas($("#cSoc")),L=40,Rr=10,T=10,B=28,pw=w-L-Rr,ph=h-T-B;
+  const col=[css("--none"),css("--accent"),css("--pos"),css("--neg")],rad=S.N>5000?1.6:2.2;
+  g.fillStyle=css("--muted");g.textAlign="center";g.textBaseline="top";
+  [18,25,35,45,55,65].forEach(a=>{g.textAlign=a===65?"right":"center";g.fillText(a+" años",L+pw*(a-18)/47,h-B+10)});g.textAlign="center";
+  g.save();g.translate(12,T+ph/2);g.rotate(-Math.PI/2);g.fillText("ingreso del hogar →",0,-4);g.restore();
+  for(const layer of [0,1,2,3]){g.fillStyle=col[layer];g.globalAlpha=layer===0?.7:layer===1?.55:1;
+    for(let i=0;i<S.N;i++)if(st[i]===layer){g.beginPath();g.arc(L+pos[i][0]*pw,T+(1-pos[i][1])*ph,layer>=2?rad+1:rad,0,7);g.fill()}}
+  g.globalAlpha=1;$("#dayLbl").textContent="Día "+day;
+}
+$("#day").addEventListener("input",e=>drawSoc(+e.target.value));
+$("#play").addEventListener("click",()=>{
+  if(socAnim){clearInterval(socAnim);socAnim=null;$("#play").textContent="▶ Reproducir";return}
+  let d=1;$("#play").textContent="❚❚ Pausa";
+  socAnim=setInterval(()=>{$("#day").value=d;drawSoc(d);if(++d>last.P.days){clearInterval(socAnim);socAnim=null;$("#play").textContent="▶ Reproducir"}},
+    Math.max(60,3000/last.P.days));
+});
+let rsz;addEventListener("resize",()=>{clearTimeout(rsz);rsz=setTimeout(()=>{if(!last||$("#out").hidden)return;
+  ["#cProfit","#cHist","#cPrice","#cBud"].forEach(s=>$(s)._draw&&$(s)._draw());drawSoc(+$("#day").value)},150)});
+
+/* ---------- comparativa (localStorage) ---------- */
+const KEY="simulador-productos";
+const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}};
+const store=v=>{try{localStorage.setItem(KEY,JSON.stringify(v))}catch(e){}};
+function renderCmp(){
+  const L=load().filter(x=>x&&x.name).map(x=>({...x,score:+x.score||0,p:+x.p||0,profit:+x.profit||0,roas:+x.roas||0,price:+x.price||0,label:x.label||""})).sort((a,b)=>b.score-a.score);
+  $("#cmp").innerHTML=L.length?`<table><tr><th>Producto</th><th class="r">Puntaje</th><th class="r">Prob. ganar</th><th class="r">Utilidad típica</th><th class="r">ROAS</th><th></th></tr>`+
+    L.map(x=>`<tr><td>${esc(x.name)}<div class="muted small">${esc(x.label)} · ${fmt$(x.price)}</div></td><td class="r"><b>${x.score}</b></td><td class="r">${pct(x.p)}</td>
+      <td class="r ${x.profit>=0?"pos":"neg"}">${fmtC(x.profit)}</td><td class="r">${num(x.roas,2)}</td>
+      <td class="r" style="white-space:nowrap">${x.P?`<button class="btn sm" data-load="${x.id}">Cargar</button> `:""}<button class="btn sm" data-del="${x.id}" aria-label="Borrar ${esc(x.name)}">✕</button></td></tr>`).join("")+`</table>`
+    :`<p class="muted small">Simula varios productos y guárdalos aquí para ver cuál conviene más.</p>`;
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+$("#cmp").addEventListener("click",e=>{const {del,load:ld}=e.target.dataset;
+  if(del){store(load().filter(x=>String(x.id)!==del));renderCmp()}
+  if(ld){const x=load().find(x=>String(x.id)===ld);if(x&&x.P){setForm(x.P);renderLearn();setDirty(true);scrollTo({top:0,behavior:"smooth"})}}});
+$("#save").addEventListener("click",()=>{
+  if(!last)return;const {P,res,sc}=last;
+  const L=load().filter(x=>x.name!==P.name);
+  const {learnCtr,learnCvr,learnN,...inputs}=P;
+  L.push({id:Date.now(),P:inputs,name:P.name,price:P.price,score:sc.score,label:labelOf(sc.score)[0],p:sc.pProfit,profit:median(res.map(x=>x.profit)),roas:sc.roas});
+  store(L);renderCmp();$("#save").textContent="Guardado ✓";setTimeout(()=>$("#save").textContent="Guardar en comparativa",1500);
+});
+renderCmp();
+
+/* ---------- aprender de tus ventas reales (localStorage) ---------- */
+const LKEY="simulador-aprendizaje";
+const lload=()=>{try{const v=JSON.parse(localStorage.getItem(LKEY)||"{}");return {use:v.use!==false,recs:Array.isArray(v.recs)?v.recs:[]}}catch(e){return {use:true,recs:[]}}};
+const lstore=v=>{try{localStorage.setItem(LKEY,JSON.stringify(v))}catch(e){}};
+
+/* correcciones: promedio geométrico de real/predicho, ponderado por pedidos y encogido hacia 1 cuando hay pocos datos */
+function learned(recs){
+  const shrink=(xs)=>{let a=0,w=0;xs.forEach(([r,wt])=>{a+=wt*Math.log(clamp(r,.05,20));w+=wt});return clamp(Math.exp(a/(w+2)),.1,10)};
+  const wt=r=>Math.sqrt(Math.max(1,r.orders));
+  const withC=recs.filter(r=>r.clicks>0&&r.pred.clicks>0);
+  const ctr=withC.length?shrink(withC.map(r=>[r.clicks/r.pred.clicks,wt(r)])):1;
+  const cvr=recs.length?shrink(recs.map(r=>{const ro=Math.max(.5,r.orders)/Math.max(.5,r.pred.orders);
+    return [r.clicks>0&&r.pred.clicks>0?ro/(r.clicks/r.pred.clicks):ro/ctr,wt(r)]})):1;
+  const dl=recs.filter(r=>r.delivered>0&&r.orders>0),O=dl.reduce((a,r)=>a+r.orders,0);
+  const rej=O?1-dl.reduce((a,r)=>a+r.delivered,0)/O:null;
+  return {n:recs.length,ctr,cvr,total:ctr*cvr,rej};
+}
+function applyLearning(P){
+  const L=lload();
+  if(!L.use||!L.recs.length||P.realCTR>0||P.realCVR>0)return P;
+  const f=learned(L.recs);return {...P,learnCtr:f.ctr,learnCvr:f.cvr,learnN:f.n};
+}
+function renderLearn(){
+  const L=lload(),f=learned(L.recs),name=$("#nombre").value.trim()||"Producto";
+  $("#lrAdd").textContent=`Agregar resultado real de "${name}"`;
+  $("#lrUse").checked=L.use;
+  $("#lrPill").textContent=f.n?`${f.n} prueba${f.n>1?"s":""} · confianza ${f.n<2?"baja":f.n<5?"media":"alta"}`:"Sin datos";
+  $("#lrPill").classList.toggle("on",f.n>0&&L.use);
+  if(!f.n){$("#lrSummary").innerHTML=`<p class="note">Todavía no hay resultados reales. Con 2 o 3 productos probados el ajuste empieza a ser útil.</p>`;$("#lrTable").innerHTML="";return}
+  const x=v=>num(v,2)+"×",dir=v=>v<.95?"menos":v>1.05?"más":"casi lo mismo";
+  const tiles=[["Clics frente a lo predicho",x(f.ctr),f.ctr===1?"Agrega clics para medirlo":`Tus anuncios reciben ${dir(f.ctr)}${f.ctr<.95||f.ctr>1.05?" clics":""}`],
+    ["Compras por clic",x(f.cvr),`Tu página convierte ${dir(f.cvr)}${f.cvr<.95||f.cvr>1.05?" de lo esperado":""}`],
+    ["Ventas en total",x(f.total),"Corrección que se aplica"]];
+  if(f.rej!=null)tiles.push(["Rechazo real",pct(f.rej),"De todos los pedidos"]);
+  let h=`<div class="tiles">${tiles.map(([k,v,s])=>`<div class="tile"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></div>`).join("")}</div>`;
+  h+=`<p class="small">Tus pruebas reales venden <b>${x(f.total)}</b> lo que predecía el simulador. ${L.use?"Las próximas simulaciones ya incluyen esta corrección y su rango de incertidumbre se reduce.":"La corrección está desactivada."}</p>`;
+  const P=readP();
+  if(f.rej!=null&&P.cod>0){const rr=clamp(f.rej/P.cod,0,.9);
+    if(Math.abs(rr-P.rr)>.03)h+=`<div class="btns"><button class="btn sm" id="lrRej" data-v="${Math.round(rr*100)}">Usar mi rechazo real (${pct(rr)} de contraentrega) en el formulario</button></div>`}
+  $("#lrSummary").innerHTML=h;
+  $("#lrTable").innerHTML=`<table><tr><th>Producto</th><th class="r">Gasto</th><th class="r">Pedidos reales</th><th class="r">Predichos</th><th class="r">Real / predicho</th><th></th></tr>`+
+    L.recs.map(r=>`<tr><td>${esc(r.name)}<div class="muted small">${esc(r.date)} · ${r.days} días</div></td><td class="r">${fmtC(r.spend)}</td><td class="r">${r.orders}</td>
+      <td class="r">${num(r.pred.orders,1)}</td><td class="r">${x(Math.max(.5,r.orders)/Math.max(.5,r.pred.orders))}</td>
+      <td class="r"><button class="btn sm" data-ldel="${r.id}" aria-label="Borrar resultado de ${esc(r.name)}">✕</button></td></tr>`).join("")+`</table>`;
+}
+$("#lrAdd").addEventListener("click",async()=>{
+  const g=id=>{const v=parseFloat(String($("#"+id).value).replace(",","."));return isFinite(v)?v:0};
+  const days=Math.round(g("lrDias")),spend=g("lrGasto"),orders=Math.round(g("lrPedidos")),clicks=Math.round(g("lrClics")),cpm=g("lrCpm"),delivered=Math.round(g("lrEntregados"));
+  const P=readP();
+  const err=!(P.price>0)?"Primero llena los datos del producto en el formulario.":days<1?"Pon cuántos días corrió la prueba.":!(spend>0)?"Pon cuánto gastaste en anuncios.":
+    !$("#lrPedidos").value?"Pon cuántos pedidos recibiste (puede ser 0).":delivered>orders?"Los entregados no pueden ser más que los pedidos.":"";
+  $("#lrErr").textContent=err;$("#lrErr").hidden=!err;if(err)return;
+  $("#lrAdd").disabled=true;$("#lrAdd").textContent="Calculando la predicción…";await tick();
+  try{
+    // lo que el simulador (sin correcciones) habría predicho con ese mismo gasto y días
+    const Q={...P,days,budget:spend/days,autoscale:false,cpm:cpm>0?cpm:P.cpm,fixed:0};
+    const r=simulate(Q,makeSociety(P.N,P.cat,12345),{ctr:1,cvr:1,cpm:1,viral:1,rr:1},false);
+    const L=lload();
+    L.recs.push({id:Date.now(),name:P.name,date:new Date().toLocaleDateString("es-CO"),days,spend,orders,clicks,delivered,cpm,
+      pred:{orders:r.totO,clicks:r.clicks}});
+    lstore(L);["lrDias","lrGasto","lrPedidos","lrClics","lrCpm","lrEntregados"].forEach(id=>$("#"+id).value="");
+  }finally{$("#lrAdd").disabled=false;renderLearn()}
+});
+$("#lrTable").addEventListener("click",e=>{const id=e.target.dataset.ldel;if(!id)return;const L=lload();L.recs=L.recs.filter(r=>String(r.id)!==id);lstore(L);renderLearn()});
+$("#lrSummary").addEventListener("click",e=>{if(e.target.id!=="lrRej")return;$("#rechazo").value=e.target.dataset.v;renderLearn()});
+$("#lrUse").addEventListener("change",e=>{const L=lload();L.use=e.target.checked;lstore(L);renderLearn()});
+$("#nombre").addEventListener("input",renderLearn);
+/* ---------- buscador con IA ----------
+   "sample" deja que la página le pregunte a Claude; "mcp" le presta a Claude los conectores de búsqueda web del usuario.
+   Donde no existen (GitHub Pages) la sección muestra un enlace a la versión de claude.ai. */
+let sampleFn=null,mcpNs=null,aiCtl=null,aiSeen=[],aiAll=[],aiChecked=0;
+const socCache={},aiStore=[];
+const ENGINES=[
+  {id:"par",name:"Parallel Search",server:"Parallel Search",search:"web_search",fetch:"web_fetch",note:"gratis, sin cuenta",does:"más vendidos de Mercado Libre + web"},
+  {id:"exa",name:"Exa",server:"Exa",search:"web_search_exa",fetch:"web_fetch_exa",note:"requiere cuenta",does:"búsqueda web"}];
+const engState={};   // id -> "ok" | "missing"
+const WIN=75,ROUNDS=4,WANT=3;
+const ICONS={salud:'<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/><path d="M8 12h2l1-2 2 4 1-2h2"/>',
+  belleza:'<path d="M12 3l1.8 4.7L18 9.5l-4.2 1.8L12 16l-1.8-4.7L6 9.5l4.2-1.8z"/><path d="M18 15l.7 1.8 1.8.7-1.8.7L18 20l-.7-1.8-1.8-.7 1.8-.7z"/>',
+  hogar:'<path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z"/>',
+  cocina:'<path d="M4 11h16v3a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M2 11h20M9 7c0-1 1-1 1-2M14 7c0-1 1-1 1-2"/>',
+  tecnologia:'<rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/>',
+  fitness:'<path d="M6 8v8M18 8v8M3 10v4M21 10v4M6 12h12"/>',
+  mascotas:'<circle cx="7" cy="9" r="1.6"/><circle cx="11" cy="6" r="1.6"/><circle cx="15" cy="6.5" r="1.6"/><circle cx="18" cy="10" r="1.6"/><path d="M8 17c0-3 2-5 4-5s4 2 4 5c0 2-2 2-4 2s-4 0-4-2z"/>',
+  bebes:'<path d="M10 3h4v3h-4zM9 6h6l1 3v10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V9z"/><path d="M9 12h6"/>',
+  moda:'<path d="M8 4l4 2 4-2 4 4-3 3v9H7v-9L4 8z"/>',
+  auto:'<path d="M5 16V12l2-5h10l2 5v4z"/><circle cx="8" cy="16" r="1.8"/><circle cx="16" cy="16" r="1.8"/><path d="M5 12h14"/>',
+  juguetes:'<path d="M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 16.4l-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z"/>',
+  oficina:'<rect x="3" y="8" width="18" height="12" rx="2"/><path d="M9 8V5h6v3M3 13h18"/>'};
+const AI_SCHEMA=`Cada producto es un objeto JSON con exactamente estas claves:
+{"name": string (nombre comercial corto en español),
+ "cat": una de ${JSON.stringify(Object.keys(CATS))},
+ "price": precio de venta típico en pesos colombianos con anuncios y contraentrega (número entero),
+ "p2": precio por 2 unidades, con descuento atractivo (número entero),
+ "cost": costo aproximado para el vendedor en Dropi o proveedor nacional, en COP (número),
+ "ship": flete nacional aproximado por envío en COP (normalmente 10000 a 16000),
+ "perceived": precio al que la gente lo ve en Mercado Libre o tiendas, en COP,
+ "wow": 1-10 (qué tanto detiene el scroll y se comparte),
+ "prob": 1-10 (qué tan real y urgente es el problema que resuelve),
+ "qual": 1-10 (calidad típica de las unidades que se consiguen; baja = devoluciones),
+ "diff": 1-10 (qué tan difícil es conseguirlo en tiendas físicas),
+ "comp": 1-10 (saturación: 10 = todo el mundo lo vende con anuncios),
+ "ageMin": edad mínima del público (18-65), "ageMax": edad máxima (18-65),
+ "why": una frase de por qué puede vender,
+ "risk": una frase con el mayor riesgo,
+ "q": 2 a 4 palabras para buscarlo en Mercado Libre,
+ "en": nombre corto en inglés para buscarlo en Alibaba (ej. "cat water fountain"),
+ "signal": frase corta con la evidencia de demanda que viste en las señales (ej. "#6 más vendido en Mascotas en Mercado Libre, +10mil vendidos") o "sin señal directa",
+ "sources": hasta 3 objetos {"site": string, "price": número en COP o null, "url": string} tomados de las señales; [] si no hay}`;
+const AI_RULES=`Eres un analista de e-commerce en Colombia (dropshipping con anuncios en Meta/TikTok y pago contraentrega).
+Sé realista y crítico: no infles las calificaciones (5 es un producto promedio), usa precios y costos plausibles del mercado colombiano actual y nunca inventes marcas, precios encontrados ni enlaces.`;
+
+function aiClean(x,crea){
+  // dinero: solo dígitos ("$149.900" -> 149900); calificaciones y edades: número decimal
+  const n=v=>typeof v==="number"?v:+String(v??"").replace(/[^\d]/g,"")||0;
+  const d=v=>{const k=typeof v==="number"?v:parseFloat(String(v??"").replace(",","."));return isFinite(k)?k:0},r=v=>Math.round(clamp(d(v)||5,1,10));
+  if(!x||typeof x!=="object"||!x.name)return null;
+  const price=Math.round(n(x.price)/100)*100;if(!(price>=1000))return null;
+  const aMin=Math.round(clamp(d(x.ageMin)||22,18,64)),aMax=Math.round(clamp(d(x.ageMax)||55,aMin+1,65));
+  const sources=(Array.isArray(x.sources)?x.sources:[]).filter(o=>o&&o.site).slice(0,3).map(o=>({site:String(o.site).slice(0,40),
+    price:n(o.price)>=1000?Math.round(n(o.price)):null,url:/^https:\/\//.test(String(o.url||""))?String(o.url).slice(0,300):""}));
+  return {name:String(x.name).slice(0,60),cat:CATS[x.cat]?x.cat:"hogar",price,
+    p2:n(x.p2)>price&&n(x.p2)<2*price?Math.round(n(x.p2)/100)*100:0,
+    cost:Math.round(n(x.cost))||Math.round(price/4),ship:Math.round(n(x.ship))||12000,perceived:Math.round(n(x.perceived))||price,
+    wow:r(x.wow),prob:r(x.prob),qual:r(x.qual),diff:r(x.diff),comp:r(x.comp),crea,ageMin:aMin,ageMax:aMax,
+    why:String(x.why||"").slice(0,220),risk:String(x.risk||"").slice(0,220),q:String(x.q||x.name).slice(0,60),en:String(x.en||"").slice(0,60),sources,
+    signal:/sin señal/i.test(String(x.signal||""))?"":String(x.signal||"").slice(0,160)};
+}
+function aiBusy(txt){$("#aiStatus").hidden=!txt;$("#aiStatusTxt").textContent=txt||"";
+  ["#aiSearch","#aiFill","#aiMore"].forEach(s=>$(s).disabled=!!txt)}
+function aiFail(e){
+  const c=e&&e.code;if(c==="cancelled")return;
+  const msg={not_granted:"No diste permiso para usar Claude en esta página. Recárgala para que vuelva a preguntar.",
+    sampling_disabled:"Claude no está disponible para esta cuenta.",rate_limited:"Llegaste al límite de consultas por ahora. Intenta de nuevo en unos minutos.",
+    session_expired:"Tu sesión de claude.ai expiró. Vuelve a iniciar sesión.",invalid_json:"La respuesta no vino en el formato esperado. Intenta de nuevo.",
+    refused:"Claude no respondió esa búsqueda. Prueba describiéndola de otra forma.",empty_completion:"Claude no devolvió productos. Prueba con una búsqueda más concreta.",
+    prompt_too_large:"Las búsquedas web trajeron demasiado texto. Desactiva un motor o haz la búsqueda más concreta."}[c]
+    ||"No se pudo completar la búsqueda (código: "+(c||"desconocido")+"). Intenta de nuevo.";
+  $("#aiErr").textContent=msg;$("#aiErr").hidden=false;
+  if(["not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(c))$("#aiSearch").disabled=$("#aiFill").disabled=true;
+}
+
+/* ---------- motores ---------- */
+async function detectEngines(){
+  if(mcpNs){try{const {servers}=await mcpNs.listTools();
+    for(const e of ENGINES){const sv=servers.find(x=>x.server===e.server);engState[e.id]=sv&&sv.tools&&sv.tools.length&&sv.authStatus!=="needs_reauth"?"ok":"missing"}}
+    catch(_){ENGINES.forEach(e=>engState[e.id]="missing")}}
+  else ENGINES.forEach(e=>engState[e.id]="missing");
+  renderEngines();
+}
+function renderEngines(){
+  let saved={};try{saved=JSON.parse(localStorage.getItem("simulador-motores")||"{}")}catch(_){}
+  $("#aiEngines").innerHTML=`<label class="eng ok"><input type="checkbox" checked disabled>Conocimiento de Claude <small>siempre activo</small></label>`+
+    ENGINES.map(e=>engState[e.id]==="ok"
+      ?`<label class="eng ok"><input type="checkbox" id="eng-${e.id}" ${saved[e.id]!==false?"checked":""}>${e.name} <small>conectado · ${e.does}</small></label>`
+      :`<span class="eng off">${e.name} <small>no conectado · ${e.note}</small></span>`).join("");
+  const any=ENGINES.some(e=>engState[e.id]==="ok");
+  $("#engHelp").hidden=any;
+  $("#engHelp").innerHTML=`Para que busque <b>en internet de verdad</b> (precios reales de Mercado Libre, productos virales, anuncios activos), conecta <b>Parallel Search</b> (gratis) o <b>Exa</b> en claude.ai → <b>Configuración → Conectores</b> y recarga esta página.${mcpNs?"":" Esta vista no puede usar conectores."}`;
+  ENGINES.forEach(e=>{const el=$("#eng-"+e.id);if(el)el.addEventListener("change",()=>{saved[e.id]=el.checked;try{localStorage.setItem("simulador-motores",JSON.stringify(saved))}catch(_){}})});
+}
+/* ---------- señales reales: la app consulta los motores directamente (esquemas verificados con llamadas reales) ----------
+   Parallel Search: web_fetch {urls, objective, search_queries, session_id} y web_search {objective, search_queries, session_id}
+   -> {results:[{url,title,excerpts[],acquired_at}]}.  Exa: web_search_exa {query, objective, numResults} -> texto. */
+const AI_SESSION=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,"0")).join("");
+const ML="https://www.mercadolibre.com.co/mas-vendidos";
+const ML_CAT={hogar:"MCO1574",belleza:"MCO1246",mascotas:"MCO1071",tecnologia:"MCO1000",fitness:"MCO1276",auto:"MCO1747"}; // páginas que sí cargan; las demás categorías usan la búsqueda web
+let aiSig=null; // {key,text,stats}
+async function callEngine(id,tool,input){
+  const e=ENGINES.find(x=>x.id===id);
+  if(!mcpNs||engState[id]!=="ok"||!$("#eng-"+id)?.checked)return {skip:true};
+  try{const r=await mcpNs.callTool(e.server,tool,input,{signal:aiCtl.signal});return {data:r.payload!==undefined?r.payload:r.content}}
+  catch(err){const c=err&&err.code;if(c==="cancelled")throw err;
+    if(["needs_reauth","server_not_connected","not_in_manifest","server_not_found"].includes(c)){engState[id]="missing";renderEngines()}
+    return {error:c||"error"}}
+}
+const tidy=t=>String(t||"").replace(/=search_best-seller[^)\s]*/g,"").replace(/[?&](searchVariation|tracking_id|wid|sid)=[^)\s]*/g,"").replace(/\n{3,}/g,"\n\n");
+function parText(d,per){
+  const res=d&&Array.isArray(d.results)?d.results:[];
+  return {n:res.length,date:res.map(r=>r.acquired_at).filter(Boolean).sort().pop()||"",
+    text:res.map(r=>`### ${r.title||""} (${String(r.url||"").split("?")[0]})${r.acquired_at?` [datos del ${String(r.acquired_at).slice(0,10)}]`:""}\n${tidy((r.excerpts||[]).join("\n")).slice(0,per)}`).join("\n\n")};
+}
+async function collectSignals(q,cat){
+  const key=q+"|"+cat;if(aiSig&&aiSig.key===key)return aiSig;
+  const urls=cat!=="all"&&ML_CAT[cat]?[`${ML}/${ML_CAT[cat]}`,ML]:cat==="all"?[ML,`${ML}/MCO1574`,`${ML}/MCO1246`,`${ML}/MCO1071`]:[ML];
+  const what=[cat!=="all"?CATS[cat].n:"",q].join(" ").trim()||"productos";
+  const catTxt=cat!=="all"?` (${CATS[cat].n})`:"";
+  aiBusy("Leyendo más vendidos de Mercado Libre y buscando en la web…");
+  const [ml,web,exa]=await Promise.all([
+    callEngine("par","web_fetch",{urls,objective:`Productos más vendidos relacionados con ${what}: nombre, posición, precio, cantidad vendida y calificación`,search_queries:[what],session_id:AI_SESSION}),
+    callEngine("par","web_search",{objective:`Productos de ${what}${catTxt} que más se venden o están virales en Colombia (Mercado Libre, TikTok, tiendas online), con precio en pesos`,
+      search_queries:[`${what} más vendido Colombia`,`site:mercadolibre.com.co ${what}`,`${what} viral tiktok Colombia`],session_id:AI_SESSION}),
+    callEngine("exa","web_search_exa",{query:`Página que muestra productos de ${what}${catTxt} populares o virales que se venden en Colombia con su precio en pesos`,
+      objective:"Productos concretos con precio en COP y señales de demanda: vendidos, virales, reseñas",numResults:8})]);
+  const parts=[],stats=[];
+  if(ml.data){const t=parText(ml.data,9000),n=(t.text.match(/MÁS VENDIDO/g)||[]).length;
+    if(n){parts.push("## MÁS VENDIDOS DE MERCADO LIBRE COLOMBIA\n"+t.text);stats.push({ok:1,t:`Mercado Libre más vendidos: ${n} productos`+(t.date?` · datos del ${t.date.slice(0,10)}`:"")})}
+    else stats.push({ok:0,t:"Mercado Libre no entregó su lista de más vendidos"})}
+  else if(ml.error)stats.push({ok:0,t:`Mercado Libre no respondió (${ml.error})`});
+  if(web.data){const t=parText(web.data,3000);if(t.n){parts.push("## BÚSQUEDA WEB (PARALLEL)\n"+t.text);stats.push({ok:1,t:`Búsqueda web: ${t.n} resultados`})}}
+  else if(web.error)stats.push({ok:0,t:`Búsqueda web no respondió (${web.error})`});
+  if(exa.data){const t=tidy(typeof exa.data==="string"?exa.data:JSON.stringify(exa.data)),n=(t.match(/^URL:/gm)||[]).length;
+    if(t.trim()){parts.push("## BÚSQUEDA WEB (EXA)\n"+t.slice(0,12000));stats.push({ok:1,t:`Exa: ${n||"varios"} resultados`})}}
+  else if(exa.error)stats.push({ok:0,t:`Exa no respondió (${exa.error})`});
+  aiSig={key,text:parts.join("\n\n").slice(0,45000),stats};
+  return aiSig;
+}
+function renderSignals(sig){
+  const el=$("#aiSignals");
+  if(!sig.stats.length){el.hidden=false;el.innerHTML=`<span class="eng off">Sin motores web activos: los candidatos salen solo del conocimiento de Claude</span>`;return}
+  el.hidden=false;el.innerHTML=sig.stats.map(x=>`<span class="eng ${x.ok?"ok":"off"}">${x.ok?"✓":"✕"} <small>${esc(x.t)}</small></span>`).join("");
+}
+
+/* ---------- evaluación: prueba varios precios con combo y se queda con la mejor forma de venderlo ---------- */
+function evalWith(P,N,runs){
+  const key=P.cat+N;const S=socCache[key]||(socCache[key]=makeSociety(N,P.cat,12345));
+  const Q=applyLearning({...P,N}),Ms=drawMults(runs,777,Q),res=Ms.map(M=>simulate(Q,S,M,false));
+  return {sc:scoreOf(Q,res),profit:median(res.map(x=>x.profit))};
+}
+async function bestConfig(P,label){
+  let best=null;
+  for(const f of [.9,1,1.15,1.3]){
+    const price=Math.round(P.price*f/100)*100,p2=P.p2?Math.round(P.p2*f/100)*100:Math.round(price*1.7/100)*100;
+    const Q={...P,price,p2,perceived:P.perceived};
+    const ev=evalWith(Q,2000,16);if(!best||ev.sc.score>best.sc.score)best={P:Q,...ev};
+    await tick();
+  }
+  if(best.sc.score>=WIN-8){aiBusy(`Confirmando ${label} con la simulación completa…`);await tick();best={P:best.P,...evalWith(best.P,4000,40)}}
+  return best;
+}
+
+/* ---------- tarjetas ---------- */
+function candHTML(o,i){
+  const {P,meta,sc,profit}=o,[lab,col]=labelOf(sc.score),c0=econ(P).c0;
+  const ml="https://listado.mercadolibre.com.co/"+encodeURIComponent(meta.q.toLowerCase().replace(/\s+/g,"-"));
+  const fb="https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=CO&q="+encodeURIComponent(meta.q);
+  const changed=P.price!==meta.price;
+  const src=meta.sources&&meta.sources.length?`<div class="src"><span>Visto en:</span>${meta.sources.map(x=>x.url
+      ?`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.site)}${x.price?" "+fmtC(x.price):""}</a>`
+      :`<span>${esc(x.site)}${x.price?" "+fmtC(x.price):""}</span>`).join("")}</div>`:"";
+  return `<article class="cand">
+    <header><div class="cico" aria-hidden="true"><svg viewBox="0 0 24 24">${ICONS[P.cat]||ICONS.hogar}</svg></div>
+      <div style="min-width:0"><h3>${esc(meta.name)}</h3><div class="meta">${esc(CATS[P.cat].n)} · ${P.ageMin}–${P.ageMax} años</div></div>
+      <div class="ring" style="--v:${sc.score};--vc:${col}" title="${esc(lab)}"><b>${sc.score}</b></div></header>
+    <div class="mets">
+      <div><span>Vender a</span><b>${fmt$(P.price)}</b><i>2 por ${fmt$(P.p2)}</i></div>
+      <div><span>Te deja por pedido</span><b class="${c0>0?"pos":"neg"}">${fmtC(c0)}</b><i>antes de anuncios</i></div>
+      <div><span>Gana en</span><b>${pct(sc.pProfit)}</b><i>de los escenarios</i></div></div>
+    <div class="facts"><span>Costo · flete</span><span>${fmt$(P.cost)} · ${fmt$(P.ship)}</span>
+      <span>Utilidad típica en ${P.days} días</span><span class="${profit>=0?"pos":"neg"}">${fmtC(profit)}</span>
+      <span>ROAS esperado</span><span>${num(sc.roas,2)} (necesitas ${isFinite(sc.beRoas)?num(sc.beRoas,2):"∞"})</span></div>
+    <div class="why">${meta.signal?`<p><span class="ic ok">↑</span><span><b>${esc(meta.signal)}</b></span></p>`:""}${meta.why?`<p><span class="ic ok">✓</span><span>${esc(meta.why)}</span></p>`:""}${meta.risk?`<p><span class="ic warn">!</span><span class="muted">${esc(meta.risk)}</span></p>`:""}
+      ${changed?`<p><span class="ic ok">$</span><span class="muted">Precio ajustado por el simulador (la IA sugería ${fmt$(meta.price)}).</span></p>`:""}</div>
+    ${src}
+    ${sampleFn&&engState.par==="ok"&&aliPlan(i,meta)?`<div class="ali" data-ali="${i}"><b class="t">Importando desde Alibaba</b><span class="muted">Buscando precio mayorista…</span></div>`:""}
+    <div class="lk"><a href="${ml}" target="_blank" rel="noopener">Precios en Mercado Libre</a><a href="${fb}" target="_blank" rel="noopener">Anuncios activos</a><a href="https://www.alibaba.com/trade/search?SearchText=${encodeURIComponent(meta.en||meta.q)}" target="_blank" rel="noopener">Buscar en Alibaba</a></div>
+    <footer><span class="tag${meta.signal||meta.sources&&meta.sources.length?" web":""}">${meta.signal||meta.sources&&meta.sources.length?"Con señales reales":"Estimado por IA"}</span>
+      <button class="btn sm primary" data-aiload="${i}">Cargar y simular completo</button></footer></article>`;
+}
+
+/* ---------- búsqueda ---------- */
+/* ---------- revisión masiva: recorre páginas de Mercado Libre hasta juntar la meta de productos ---------- */
+/* extrae productos de una página de Mercado Libre en markdown (listado o más vendidos) */
+function mlParse(md,src){
+  const t=String(md||"").replace(/\\([.\-+()#*_])/g,"$1");
+  const re=/\[([^\]\n]{8,180})\]\((https:\/\/(?:www\.|articulo\.|click1\.)mercadolibre\.com\.co\/[^)\s]+)\)/g;
+  const hits=[];let m;
+  while((m=re.exec(t))){const url=m[2];
+    if(/listado\.|\/c\/|mas-vendidos|registration|privacidad|publicidad|ayuda|login|hp\.mercadolibre/.test(url))continue;
+    hits.push({i:m.index,end:re.lastIndex,title:m[1].trim(),url});}
+  const out=[];
+  for(let k=0;k<hits.length;k++){
+    const h=hits[k],next=k+1<hits.length?hits[k+1].i:Math.min(t.length,h.end+1500);
+    if(k>0&&hits[k-1].title===h.title&&h.i-hits[k-1].end<400)continue;
+    const after=t.slice(h.end,next),before=t.slice(Math.max(0,h.i-250),h.i);
+    const priceTxt=after.replace(/~~\$ ?[\d.]+~~/g,"").replace(/cuotas de \$ ?[\d.]+/g,"").replace(/desde \$ ?[\d.]+/g,"");
+    const pm=priceTxt.match(/\$ ?(\d{1,3}(?:\.\d{3})+|\d{4,7})(?!\d)/);if(!pm)continue;
+    const price=+pm[1].replace(/\./g,"");if(!(price>=3000&&price<=20000000))continue;
+    const old=after.match(/~~\$ ?(\d{1,3}(?:\.\d{3})+)~~/);
+    const sm=after.match(/\+(\d+)(mil)? vendidos/);
+    const rm=after.match(/(?:^|\s)([1-5]\.\d)(?:\s|\s?\|)/);
+    const id=(h.url.match(/(?:item_id%3A|\/p\/|wid=|MCO-?)(MCO)?-?(\d{6,})/)||[])[2]||"";
+    out.push({name:h.title.replace(/\s+/g," "),price,old:old?+old[1].replace(/\./g,""):0,
+      sold:sm?(+sm[1])*(sm[2]?1000:1):0,rating:rm?+rm[1]:0,
+      best:/MÁS VENDIDO/.test(before+after.slice(0,80)),ad:/is_advertising=true|\[Ad\]/.test(h.url+after),src,id});
+  }
+  return out;
+}
+
+const SEEDS={salud:["masajeador","corrector postura","tensiometro","faja lumbar","rodillera","plantillas ortopedicas","almohada cervical","pastillero","nebulizador","termometro"],
+  belleza:["cepillo alisador","depiladora","limpiador facial","rizador","organizador maquillaje","espejo led","cortapelo","masajeador facial","removedor puntos negros","secador cabello"],
+  hogar:["organizador cocina","lampara led","organizador closet","humidificador","dispensador jabon","cortina","perchero","organizador baño","lampara sensor","mopa"],
+  cocina:["cortador verduras","freidora aire","dispensador agua","organizador especias","molino","termo","picador","bascula cocina","cuchillos","tapete cocina"],
+  tecnologia:["soporte celular","audifonos bluetooth","cargador portatil","camara seguridad","aro de luz","mini proyector","teclado bluetooth","parlante bluetooth","smartwatch","lampara escritorio"],
+  fitness:["bandas elasticas","rodillo abdominal","cuerda saltar","mancuernas","colchoneta yoga","faja reductora","botella deportiva","banda gluteos","masajeador muscular","soporte flexiones"],
+  mascotas:["bebedero gatos","cepillo mascotas","cama perro","juguete gato","comedero automatico","arnes perro","rascador gato","collar perro","transportador mascotas","arena gato"],
+  bebes:["monitor bebe","cambiador bebe","calienta teteros","organizador pañales","sonajero","protector esquinas","bañera bebe","portabebe","termometro bebe","babero"],
+  moda:["billetera","reloj","gafas sol","bolso","organizador joyas","mochila","gorra","cinturon","riñonera","manos libres"],
+  auto:["soporte celular carro","aspiradora carro","organizador carro","inflador llantas","camara reversa","cargador carro","ambientador carro","cubre volante","linterna","parasol carro"],
+  juguetes:["juguete didactico","rompecabezas","bloques construccion","carro control remoto","plastilina","pista carros","muñeca","pizarra magnetica","burbujas","juego mesa"],
+  oficina:["organizador escritorio","soporte portatil","lampara escritorio","agenda","pizarra","base monitor","cuaderno","silla ergonomica cojin","porta lapices","mouse pad"]};
+let catalog=null; // {key, items:Map, pages, failed, web, seen, queue, terms, at, cached}
+const STOP=new Set("de del la el los las para con sin por en y o x a al un una unidades und pack set kit pcs piezas pzs color negro blanco gris azul rojo rosa verde morado amarillo beige cafe nuevo nueva original grande pequeno mini tipo modelo marca cm mm ml lt litros pulgadas".split(" "));
+const words=n=>String(n).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(w=>w.length>2&&!STOP.has(w)&&!/^\d/.test(w));
+const normKey=n=>words(n).slice(0,5).join(" ");
+const clusterKey=n=>words(n).slice(0,3).join(" ")||normKey(n);
+const slugify=t=>t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+/* memoria en el navegador (IndexedDB): el catálogo de cada búsqueda dura 24 h y las páginas bloqueadas se evitan 7 días */
+const DAY=864e5;
+const IDB={db:null,
+  async open(){if(!this.db)this.db=await new Promise((ok,no)=>{try{const r=indexedDB.open("simulador-catalogo",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)}catch(e){no(e)}});return this.db},
+  async get(k){try{const db=await this.open();return await new Promise(ok=>{const q=db.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>ok(q.result||null);q.onerror=()=>ok(null)})}catch(e){return null}},
+  async set(k,v){try{const db=await this.open();await new Promise(ok=>{const t=db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=ok;t.onerror=ok;t.onabort=ok})}catch(e){}}};
+function scanUI(c,target){
+  $("#aiScan").hidden=false;
+  const n=c.items.size;$("#aiScanBar").style.width=Math.min(100,n/target*100)+"%";
+  $("#aiScanTxt").textContent=c.cached?`Catálogo guardado hace ${Math.max(1,Math.round((Date.now()-c.at)/36e5))} h: ${n.toLocaleString("es-CO")} productos`
+    :`Productos revisados: ${n.toLocaleString("es-CO")} de ${target.toLocaleString("es-CO")}`;
+  $("#aiScanPages").textContent=`${c.pages} páginas · ${c.failed} bloqueadas · ${c.web.toLocaleString("es-CO")} de búsqueda web`;
+}
+async function seedTerms(q,cat){
+  const base=cat!=="all"?SEEDS[cat]:Object.values(SEEDS).flat();
+  let extra=[];
+  try{
+    const r=await sampleFn.json(`Dame 80 búsquedas cortas (2 o 3 palabras, en español, sin marcas) de productos genéricos físicos que se venden en Mercado Libre Colombia${cat!=="all"?` en la categoría ${CATS[cat].n}`:""}${q?` relacionados con: "${q}"`:""}. Variadas (no sinónimos de lo mismo), útiles para dropshipping con anuncios y contraentrega. Responde solo con un arreglo JSON de strings.`,{signal:aiCtl.signal,modelTier:"quick"});
+    if(Array.isArray(r))extra=r.map(String);
+  }catch(e){if(e&&e.code==="cancelled")throw e}
+  const w=[...(q?[q]:[]),...extra,...base].map(slugify).filter(x=>x.length>2);
+  return [...new Set(w)];
+}
+async function massScan(q,cat,target,fresh){
+  const key=q+"|"+cat;
+  if(!fresh&&catalog&&catalog.key===key&&catalog.items.size>=target)return catalog;
+  let c=!fresh&&catalog&&catalog.key===key?catalog:null;
+  if(!c&&!fresh){const sv=await IDB.get("cat:"+key);
+    if(sv&&Date.now()-sv.at<DAY){c={key,items:new Map(sv.items),pages:sv.pages,failed:sv.failed,web:sv.web||0,seen:new Set(sv.seen),queue:sv.queue||[],terms:sv.terms||[],at:sv.at,cached:true};
+      if(c.items.size>=target){catalog=c;scanUI(c,target);return c}}}
+  if(!c)c={key,items:new Map(),pages:0,failed:0,web:0,seen:new Set(),queue:[],terms:[],at:Date.now()};
+  c.cached=false;catalog=c;
+  const deadRec=(await IDB.get("dead"))||{},now=Date.now();
+  for(const u in deadRec)if(now-deadRec[u]>7*DAY)delete deadRec[u];
+  if(!c.queue.length&&!c.terms.length){
+    aiBusy("Preparando las búsquedas en Mercado Libre…");
+    const ml=cat!=="all"&&ML_CAT[cat]?[`${ML}/${ML_CAT[cat]}`]:[ML,...Object.values(ML_CAT).map(id=>`${ML}/${id}`)];
+    const terms=await seedTerms(q,cat);
+    c.queue.push(...ml,...terms.map(t=>"https://listado.mercadolibre.com.co/"+t));
+    c.terms=terms.slice();
+  }
+  const add=list=>{let n=0;for(const p of list){const k=p.id||normKey(p.name);const o=c.items.get(k);
+    if(o){o.best=o.best||p.best;o.sold=Math.max(o.sold,p.sold);o.ad=o.ad||p.ad;o.hits++}else{c.items.set(k,{...p,hits:1});n++}}return n};
+  const t0=Date.now(),BATCH=5,PAR=6;let empty=0;
+  aiBusy("Revisando productos de Mercado Libre…");scanUI(c,target);
+  while(c.items.size<target&&(c.queue.length||c.terms.length)&&!aiCtl.signal.aborted&&Date.now()-t0<20*60000&&empty<12){
+    const jobs=[];
+    // una búsqueda web por ronda: segunda fuente de productos con precio
+    if(c.terms.length){const term=c.terms.shift().replace(/-/g," ");
+      jobs.push(callEngine("par","web_search",{objective:`Publicaciones de Mercado Libre Colombia de ${term} con su precio`,search_queries:[`site:mercadolibre.com.co ${term}`,`${term} mercadolibre colombia precio`],session_id:AI_SESSION}).then(r=>({r,web:true})));}
+    for(let j=jobs.length;j<PAR&&c.queue.length;j++){
+      const urls=[];while(urls.length<BATCH&&c.queue.length){const u=c.queue.shift();if(!c.seen.has(u)&&!deadRec[u]){c.seen.add(u);urls.push(u)}}
+      if(urls.length)jobs.push(callEngine("par","web_fetch",{urls,full_content:true,allow_live_fetch:false,objective:"Productos con nombre y precio",session_id:AI_SESSION}).then(r=>({r,urls})));
+    }
+    if(!jobs.length)break;
+    const done=await Promise.all(jobs);let got=0;
+    for(const {r,urls,web} of done){
+      if(r.skip)return c;
+      if(r.error){if(urls)c.failed+=urls.length;continue}
+      const res=(r.data&&r.data.results)||[];
+      if(web){for(const x of res){const n=add(mlParse((x.excerpts||[]).join("\n"),x.url));c.web+=n;got+=n}continue}
+      const ok=new Set();
+      for(const x of res){
+        const md=x.full_content||(x.excerpts||[]).join("\n"),items=mlParse(md,x.url);
+        if(items.length){c.pages++;got+=add(items);ok.add(x.url)}
+        // más páginas para seguir: búsquedas relacionadas, categorías y subcategorías de más vendidos
+        const more=[...md.matchAll(/https:\/\/listado\.mercadolibre\.com\.co\/[a-z0-9\-\/]+(?=[)\s"])/g)].map(m=>m[0].replace(/\/$/,""))
+          .concat([...md.matchAll(/https:\/\/www\.mercadolibre\.com\.co\/mas-vendidos\/MCO\d+/g)].map(m=>m[0]));
+        for(const u of more)if(!c.seen.has(u)&&!deadRec[u]&&!/_Desde_|_NoIndex|\/_/.test(u))c.queue.push(u);
+      }
+      for(const u of urls)if(!ok.has(u)){c.failed++;deadRec[u]=now}
+    }
+    empty=got?0:empty+1;
+    scanUI(c,target);await tick();
+  }
+  IDB.set("dead",deadRec);
+  IDB.set("cat:"+key,{at:c.at,items:[...c.items],pages:c.pages,failed:c.failed,web:c.web,seen:[...c.seen].slice(-6000),queue:c.queue.slice(0,4000),terms:c.terms});
+  return c;
+}
+/* puntaje de oportunidad: demanda comprobada y potencial para venderlo con anuncios y contraentrega */
+const NOGO=/\b(samsung|xiaomi|redmi|iphone|apple|motorola|huawei|lenovo|sony|lg|hp|logitech|jbl|nike|adidas|puma|stanley|imusa|oster|black\+decker|alimento|concentrado|purina|chunky|perfume|parfum|colonia|prote[ií]na|creatina|whey|suplemento|vitamina|medicamento|celular|televisor|smart tv|tv|computador|port[aá]til|monitor|tablet|consola|colch[oó]n|sof[aá]|nevera|lavadora|estufa|horno|mueble|closet|armario|escritorio|silla|mesa|cama|llanta|aceite|zapato|tenis|sandalia|chancla|camisa|camiseta|pantal[oó]n|jean|vestido|talla|repuesto|\d+\s?kg)\b/i;
+function oppScore(p){
+  if(p.price<25000||p.price>350000||NOGO.test(p.name))return null;
+  let s=0;
+  if(p.best)s+=25;
+  if(p.sold)s+=Math.min(30,Math.log10(p.sold+1)*7.5);
+  if(p.ad)s+=10;
+  if(p.rating)s+=clamp((p.rating-4)*20,0,20);
+  if(p.old>p.price)s+=5;
+  s+=Math.min(10,(p.hits-1)*3);
+  if(p.price>=45000&&p.price<=180000)s+=10;
+  return Math.round(s);
+}
+function guessCat(name,fallback){
+  const n=name.toLowerCase();
+  const rules=[["mascotas",/perro|gato|mascota|arnes|collar|rascador/],["bebes",/beb[eé]|pañal|tetero/],["auto",/carro|moto|auto|llanta|veh[ií]culo/],
+    ["cocina",/cocina|cuchill|olla|sart[eé]n|picador|cortador|licuad|freidora|especias/],["belleza",/facial|cabello|pelo|maquill|u[ñn]as|depila|piel|alisador/],
+    ["fitness",/gym|ejercicio|yoga|pesas|abdominal|deport|fitness|mancuerna/],["salud",/masaje|postura|dolor|lumbar|cervical|ortop[eé]d|salud/],
+    ["tecnologia",/bluetooth|usb|cargador|led|c[aá]mara|aud[ií]fono|parlante|smart/],["oficina",/escritorio|oficina|cuaderno|agenda/],
+    ["juguetes",/juguete|niñ[oa]s|did[aá]ctic|rompecabezas/],["hogar",/hogar|organizador|baño|lampara|l[aá]mpara|cortina/]];
+  for(const [c,r] of rules)if(r.test(n))return c;
+  return fallback;
+}
+/* convierte un producto de Mercado Libre en datos de simulación aproximados (solo para ordenar; Claude afina los finalistas) */
+function roughP(base,p,cat){
+  const price=Math.round(p.price*1.25/100)*100,dup=p.hits||1;
+  return {...base,name:p.name,cat:cat!=="all"?cat:guessCat(p.name,"hogar"),price,p2:Math.round(price*1.7/100)*100,p3:0,upPrice:0,upCost:0,
+    cost:Math.round(p.price*.32),ship:12000,perceived:Math.max(p.old||0,p.price),wow:6,prob:6,qual:p.rating?Math.round(clamp(p.rating*2-3,4,8)):5,
+    diff:5,comp:Math.round(clamp(3+Math.log2(dup)*1.3,3,9)),realCTR:0,realCVR:0};
+}
+
+/* agrupa las publicaciones del mismo tipo de producto: cuántos vendedores, cuántos pagan anuncios, ventas y precio medio */
+function buildClusters(items){
+  const m=new Map();
+  for(const p of items){const o=oppScore(p);if(o==null)continue;const k=clusterKey(p.name);
+    let c=m.get(k);if(!c)m.set(k,c={key:k,list:[],ads:0,best:0,sold:0,rs:0,rn:0,prices:[]});
+    c.list.push({p,o});if(p.ad)c.ads++;if(p.best)c.best++;c.sold=Math.max(c.sold,p.sold);if(p.rating){c.rs+=p.rating;c.rn++}c.prices.push(p.price)}
+  const out=[];
+  for(const c of m.values()){
+    c.list.sort((a,b)=>b.o-a.o);const top=c.list[0].p,n=c.list.length,med=Math.round(median(c.prices));
+    let sc=c.list[0].o+Math.min(15,Math.log2(n)*4)+(c.best?8:0)+(c.ads/n>.3?5:0);
+    const sell=med*1.25; // precio típico de venta con contraentrega; zona rentable de Dropi: 80 a 180 mil
+    if(sell>=80000&&sell<=180000)sc+=10;else if(sell<60000||sell>250000)sc-=8;
+    out.push({key:c.key,n,ads:c.ads,best:c.best,sold:c.sold,med,score:Math.round(sc),
+      rep:{...top,price:med,best:c.best>0,sold:c.sold,ad:c.ads>0,hits:n,rating:c.rn?+(c.rs/c.rn).toFixed(1):top.rating}});
+  }
+  return out.sort((a,b)=>b.score-a.score);
+}
+let aiSeenKeys=new Set(),aiWins=[],aiShown=new Set();
+/* ---------- costo de importación desde Alibaba (búsqueda web, sin claves) ---------- */
+const aiMeta={},aliRes={};
+function impCfg(){const g=(id,d)=>{const v=+$("#"+id).value;return v>0?v:d};return {trm:g("impTrm",3162),over:(+$("#impOver").value||0)/100}}
+try{const v=JSON.parse(localStorage.getItem("simulador-import")||"{}");if(v.trm)$("#impTrm").value=v.trm;if(v.over!=null)$("#impOver").value=v.over}catch(_){}
+let impLast=JSON.stringify(impCfg());
+["#impTrm","#impOver"].forEach(s=>$(s).addEventListener("input",()=>{ // solo redibuja si el valor cambió de verdad (al salir del campo no debe tragarse el siguiente clic)
+  const now=JSON.stringify(impCfg());if(now===impLast)return;impLast=now;
+  try{localStorage.setItem("simulador-import",JSON.stringify({trm:$("#impTrm").value,over:$("#impOver").value}))}catch(_){}
+  Object.keys(aliRes).forEach(k=>renderAli(+k))}));
+let aliBusy=Promise.resolve();
+function aliPlan(k,meta){ // la tarjeta pide su precio de Alibaba una sola vez, cuando ya está en pantalla
+  if(!aiMeta[k]){aiMeta[k]=meta;setTimeout(()=>aliRes[k]?renderAli(k):aliQueue([k]),0)}else if(aliRes[k])setTimeout(()=>renderAli(k),0);
+  return true}
+function aliQueue(idx){for(const k of idx)aliBusy=aliBusy.then(()=>aliLookup(k)).catch(()=>{})} // de a uno, para no saturar los motores
+async function aliLookup(k){
+  const el=document.querySelector(`[data-ali="${k}"]`),m=aiMeta[k];if(!el||!m||!sampleFn)return;
+  const term=m.en||m.q||m.name;
+  try{
+    const r=await mcpNs.callTool("Parallel Search","web_search",{objective:`Precio mayorista en Alibaba de ${term}: dólares por unidad según cantidad y pedido mínimo (MOQ)`,
+      search_queries:[`alibaba ${term} wholesale price`,`site:alibaba.com ${term}`],session_id:AI_SESSION});
+    const d=r.payload!==undefined?r.payload:r.content,ev=parText(d,2500).text.slice(0,14000);
+    if(!ev.trim())throw new Error("sin resultados");
+    const x=await sampleFn.json(`De estos resultados de Alibaba, toma la oferta más comparable al producto genérico "${m.name}" (${term}) para revender en Colombia, preferiblemente con pedido mínimo bajo.
+Responde solo con un objeto JSON {"usdMin": número, "usdMax": número, "moq": número de unidades, "supplier": string, "url": enlace https de alibaba.com que aparezca abajo, "title": string corto} o null si no hay ninguna oferta comparable. No inventes precios ni enlaces.
+<<<
+${ev}
+>>>`,{modelTier:"quick"});
+    if(!x||!(+x.usdMin>0))throw new Error("sin oferta");
+    aliRes[k]={usdMin:+x.usdMin,usdMax:Math.max(+x.usdMin,+x.usdMax||+x.usdMin),moq:Math.max(1,Math.round(+x.moq||1)),supplier:String(x.supplier||"").slice(0,60),
+      url:/^https:\/\/([a-z0-9-]+\.)*alibaba\.com\//.test(String(x.url||""))?String(x.url):"",title:String(x.title||"").slice(0,90)};
+    renderAli(k);
+  }catch(e){el.innerHTML=`<b class="t">Importando desde Alibaba</b><span class="muted">No encontré un precio mayorista claro. Usa “Buscar en Alibaba”.</span>`}
+}
+function renderAli(k){
+  const el=document.querySelector(`[data-ali="${k}"]`),a=aliRes[k],P=aiStore[k];if(!el||!a||!P)return;
+  const {trm,over}=impCfg(),usd=(a.usdMin+a.usdMax)/2,landed=Math.round(usd*trm*(1+over)/100)*100;
+  const dropi=econ(P).c0,imp=econ({...P,cost:landed}).c0,better=imp>dropi;
+  el.innerHTML=`<b class="t">Importando desde Alibaba</b>
+    <span>${a.url?`<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title||"Ver oferta")}</a>`:esc(a.title||"Oferta encontrada")}${a.supplier?` · ${esc(a.supplier)}`:""}</span>
+    <span>US$${num(a.usdMin,2)}${a.usdMax>a.usdMin?`–${num(a.usdMax,2)}`:""} por unidad · pedido mínimo ${a.moq.toLocaleString("es-CO")} → <b>≈ ${fmt$(landed)} puesto en Colombia</b></span>
+    <span>Te dejaría <b class="${better?"pos":""}">${fmt$(imp)}</b> por pedido (con el costo actual: ${fmt$(dropi)}). Inversión mínima: ${fmt$(landed*a.moq)}.</span>
+    <div class="btns"><button class="btn sm" data-aliuse="${k}" data-cost="${landed}">Simular importando</button></div>`;
+}
+document.addEventListener("click",e=>{const k=e.target.dataset&&e.target.dataset.aliuse;if(k==null)return;const P=aiStore[+k];if(!P)return;
+  setForm({...P,cost:+e.target.dataset.cost});renderLearn();$("#run").scrollIntoView({behavior:"smooth",block:"center"});run()});
+function showWins(n){ // muestra los siguientes n ganadores aún no vistos, mejores primero
+  const next=aiWins.filter(o=>!aiShown.has(o)).slice(0,n);next.forEach(o=>aiShown.add(o));
+  $("#aiCands").querySelectorAll(".note").forEach(x=>x.remove());
+  $("#aiCands").insertAdjacentHTML("beforeend",next.map(o=>{const k=aiStore.length;aiStore.push(o.P);return candHTML(o,k)}).join(""));
+}
+async function aiSearch(more){
+  if(!sampleFn)return;
+  if(engState.par!=="ok"||!$("#eng-par")?.checked)return aiSearchKnowledge(more);
+  if(more&&aiWins.some(o=>!aiShown.has(o))){showWins(5);finishSearch("");return} // ya había ganadores sin mostrar
+  const cat=$("#aiCat").value,q=$("#aiQuery").value.trim(),target=+$("#aiTarget").value||10000,fresh=!more&&$("#aiFresh").checked;
+  if(!more){aiSeen=[];aiAll=[];aiChecked=0;aiSeenKeys=new Set();aiWins=[];aiShown=new Set();$("#aiCands").innerHTML=""}
+  $("#aiErr").hidden=true;aiCtl=new AbortController();
+  const base=readP();
+  try{
+    const [c,sig]=await Promise.all([massScan(q,cat,target,fresh),collectSignals(q,cat).catch(e=>{if(e&&e.code==="cancelled")throw e;return {text:"",stats:[]}})]);
+    renderSignals(sig);$("#aiFresh").checked=false;
+    if(!c.items.size){$("#aiScan").hidden=true;
+      $("#aiErr").textContent="Mercado Libre no entregó productos en este momento. Intenta de nuevo en unos minutos o con otra categoría.";$("#aiErr").hidden=false;return}
+    // 1) filtro, puntaje y agrupación por tipo de producto
+    aiBusy(`Filtrando y agrupando ${c.items.size.toLocaleString("es-CO")} productos…`);await tick();
+    const clusters=buildClusters(c.items.values()),passN=clusters.reduce((a,x)=>a+x.n,0);
+    // 2) simulación rápida de los 400 mejores tipos de producto
+    const pool=clusters.filter(x=>!aiSeenKeys.has(x.key)).slice(0,400),sim=[];
+    for(let k=0;k<pool.length&&!aiCtl.signal.aborted;k++){
+      const ev=evalWith(roughP(base,pool[k].rep,cat),1000,8);
+      sim.push({...pool[k],quick:ev.sc.score,rank:ev.sc.score*.6+pool[k].score*.4});
+      if(k%25===24){aiBusy(`Simulación rápida: ${k+1} de ${pool.length} tipos de producto…`);await tick()}
+    }
+    sim.sort((a,b)=>b.rank-a.rank);
+    // finalistas variados: si buscas en todas las categorías, máximo 10 por categoría
+    const perCat={},finals=[];
+    for(const x of sim){if(finals.length>=60)break;const g=guessCat(x.rep.name,"hogar");
+      if(cat==="all"&&(perCat[g]=(perCat[g]||0)+1)>10)continue;finals.push(x)}
+    finals.forEach(x=>aiSeenKeys.add(x.key));
+    const funnel=w=>renderFunnel([[c.items.size,"productos revisados"],[passN,"pasaron los filtros"],[clusters.length,"tipos de producto"],[sim.length,"simulados rápido"],[finals.length,"analizados por Claude"],[w,"ganadores"]]);
+    funnel(aiWins.length);
+    // 3) Claude analiza los finalistas en 2 lotes al mismo tiempo
+    aiBusy(`Claude está analizando ${finals.length} finalistas…`);
+    const batches=[finals.slice(0,30),finals.slice(30,60)].filter(b=>b.length);
+    const answers=await Promise.all(batches.map(batch=>{
+      const rows=batch.map((x,i)=>`${i+1}. ${x.rep.name} | precio medio ML ${fmt$(x.med)} | ${x.n} vendedor${x.n>1?"es":""}${x.ads?`, ${x.ads} con anuncios`:""}${x.best?" | MÁS VENDIDO":""}${x.sold?` | +${x.sold.toLocaleString("es-CO")} vendidos`:""}${x.rep.rating?` | ${x.rep.rating}★`:""} | ${String(x.rep.src).split("?")[0]}`).join("\n");
+      return sampleFn.json(`${AI_RULES}
+
+De ${c.items.size.toLocaleString("es-CO")} productos reales de Mercado Libre Colombia, agrupados por tipo, estos ${batch.length} quedaron como finalistas por demanda y simulación${q?` para la búsqueda "${q}"`:""}${cat!=="all"?` en ${CATS[cat].n}`:""}:
+${rows}
+
+Para cada finalista que sirva para dropshipping con anuncios y contraentrega, devuelve su versión genérica (sin marca, la que se consigue en Dropi) con datos para venderlo. Descarta los que solo se venden por la marca, son pesados o frágiles, tienen tallas, requieren registro sanitario difícil o no dejan margen.
+Reglas de quienes venden con Dropi: precio de venta ideal entre 80.000 y 180.000 COP y precio de venta de al menos 3 veces (costo + flete).
+- "ref": el número de la fila;
+- "price": precio de venta con contraentrega (suele ser 1,2 a 1,6 veces el precio medio de Mercado Libre del genérico);
+- "perceived": el precio medio de Mercado Libre de arriba;
+- "cost": costo realista del genérico para el dropshipper en Colombia;
+- "comp": usa el número de vendedores y anuncios para la saturación;
+- "signal": la evidencia de demanda de arriba (ej. "MÁS VENDIDO, 14 vendedores, 6 con anuncios");
+- "sources": [{"site":"Mercado Libre","price":precio medio,"url":el enlace de arriba}].
+${sig.text?`
+Contexto de búsquedas web de hoy (tendencias, virales):
+<<<
+${sig.text.slice(0,12000)}
+>>>
+`:""}
+${AI_SCHEMA}
+Agrega a cada objeto la clave "ref".
+
+Responde solo con un arreglo JSON con los productos que sirvan (puede tener menos de ${batch.length}).`,{signal:aiCtl.signal,cache:false}).then(raw=>({raw,batch}))
+        .catch(e=>{if(e&&e.code==="cancelled")throw e;return {raw:[],batch,err:e}});
+    }));
+    if(answers.every(a=>a.err))throw answers[0].err;
+    // 4) simulación completa de todos los analizados; ganadores sin repetir tipo de producto
+    const cand=[];
+    for(const {raw,batch} of answers)for(const x of (Array.isArray(raw)?raw:[])){
+      const m=aiClean(x,base.crea);if(!m||aiSeen.includes(m.name))continue;
+      const cl=batch[(+x.ref||0)-1];cand.push({m,key:cl?cl.key:normKey(m.name)});aiSeen.push(m.name);
+    }
+    for(let k=0;k<cand.length&&!aiCtl.signal.aborted;k++){
+      const {m,key}=cand[k];aiChecked++;
+      aiBusy(`Simulación completa ${k+1} de ${cand.length}: ${m.name} · ganadores ${aiWins.length}`);await tick();
+      const ev=await bestConfig({...base,...m,p3:0,upPrice:0,upCost:0,realCTR:0,realCVR:0},m.name);
+      const o={meta:m,key,...ev};aiAll.push(o);
+      if(ev.sc.score>=WIN&&!aiWins.some(w=>w.key===key||normKey(w.meta.name)===normKey(m.name))){aiWins.push(o);funnel(aiWins.length)}
+    }
+    // los mejores primero, máximo 5 por búsqueda
+    aiWins.sort((a,b)=>b.sc.score-a.sc.score||b.profit-a.profit);
+    showWins(5);
+    funnel(aiWins.length);
+    finishSearch(c.items.size<target&&!c.cached?`Mercado Libre solo entregó ${c.items.size.toLocaleString("es-CO")} productos en esta búsqueda (muchas páginas estaban bloqueadas). `:"");
+  }catch(e){aiFail(e)}finally{aiBusy("")}
+}
+function renderFunnel(steps){
+  $("#aiFunnel").hidden=false;
+  $("#aiFunnel").innerHTML=steps.map(([n,t])=>`<div><b>${n.toLocaleString("es-CO")}</b><span>${t}</span></div>`).join("");
+}
+function finishSearch(note){
+  const shown=document.querySelectorAll("#aiCands .cand").length;
+  if(!shown){
+    const near=[...aiAll].sort((a,b)=>b.sc.score-a.sc.score)[0];
+    $("#aiCands").innerHTML=`<div class="note" style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px"><span>${note}Ninguno de los finalistas salió como <b>Producto ganador</b> con tu campaña actual${near?` (el más cercano: ${esc(near.meta.name)}, ${near.sc.score} puntos)`:""}.</span>
+      <span class="muted">Prueba otra categoría o <b>Buscar más ganadores</b> (analiza los siguientes finalistas sin volver a recorrer Mercado Libre). Si tienes buenos videos, sube "Calidad de tus anuncios" (sección 3).</span>
+      ${aiAll.length?`<div class="btns"><button class="btn sm" id="aiNear">Ver los 3 más cercanos (no son ganadores)</button></div>`:""}</div>`;
+  }else if(note)$("#aiCands").insertAdjacentHTML("afterbegin",`<p class="note small" style="grid-column:1/-1">${note}</p>`);
+  $("#aiMoreWrap").hidden=false;
+  const pend=aiWins.filter(o=>!aiShown.has(o)).length;
+  $("#aiSummary").textContent=`${shown} ganador${shown===1?"":"es"}${catalog?` de ${catalog.items.size.toLocaleString("es-CO")} productos revisados`:""}${pend?` (hay ${pend} más: presiona Buscar más ganadores)`:""}.`;
+}
+
+/* sin Parallel Search: búsqueda solo con el conocimiento de Claude y las señales web disponibles */
+async function aiSearchKnowledge(more){
+  $("#aiScan").hidden=true;$("#aiFunnel").hidden=true;
+  if(!sampleFn)return;
+  const cat=$("#aiCat").value,q=$("#aiQuery").value.trim();
+  if(!more){aiSeen=[];aiAll=[];aiChecked=0;$("#aiCands").innerHTML=""}
+  $("#aiErr").hidden=true;aiCtl=new AbortController();
+  const base=readP(),wins=[];
+  try{
+    const sig=await collectSignals(q,cat);renderSignals(sig);
+    const has=!!sig.text,catTxt=cat!=="all"?` en la categoría ${CATS[cat].n}`:"";
+    for(let round=1;round<=ROUNDS&&wins.length<WANT&&!aiCtl.signal.aborted;round++){
+      aiBusy(`Ronda ${round} de ${ROUNDS}: Claude está eligiendo candidatos${has?" a partir de las señales":""}… · revisados ${aiChecked} · ganadores ${wins.length}`);
+      const prompt=`${AI_RULES}
+
+Busco candidatos a producto ganador${catTxt}${q?` para: "${q}"`:""}.
+${has?`Abajo hay SEÑALES REALES recogidas hoy de internet (más vendidos de Mercado Libre Colombia y búsquedas web). Úsalas como base:
+- prioriza productos que aparecen con muchas ventas (+1000 o +10mil vendidos), buen puesto en los más vendidos o que se ven virales;
+- puedes proponer la versión genérica, sin marca, de algo que vende mucho (es lo que se consigue en Dropi), o un producto complementario a lo que más se vende;
+- en "perceived" usa los precios de las señales; en "sources" pon solo sitios, precios y enlaces que aparezcan en las señales, nunca inventados;
+- en "signal" resume la evidencia de demanda que viste.`:`No hay señales web disponibles: usa tu conocimiento y pon "sin señal directa" en "signal" y [] en "sources".`}
+Descarta lo que solo se vende por la marca o no deja margen con anuncios: celulares, televisores, computadores, alimento de mascotas, perfumes o cosméticos de marca, medicamentos, suplementos y muebles grandes.
+Cada producto debe ser físico, liviano, sin tallas y fácil de enviar, costar como máximo un tercio de su precio de venta y verse bien en un video de anuncio.
+Califica con honestidad: un simulador los va a filtrar y descarta los que no dan.${aiSeen.length?`
+No repitas ninguno de estos: ${aiSeen.join("; ")}.`:""}
+${has?`
+SEÑALES:
+<<<
+${sig.text}
+>>>
+`:""}
+${AI_SCHEMA}
+
+Responde solo con un arreglo JSON de 8 objetos.`;
+      const raw=await sampleFn.json(prompt,{signal:aiCtl.signal,cache:false});
+      const list=(Array.isArray(raw)?raw:[]).map(x=>aiClean(x,base.crea)).filter(Boolean).filter(x=>!aiSeen.includes(x.name));
+      for(const m of list){
+        if(aiCtl.signal.aborted||wins.length>=WANT)break;
+        aiSeen.push(m.name);aiChecked++;
+        aiBusy(`Ronda ${round} de ${ROUNDS}: probando precios y combo de ${m.name} · revisados ${aiChecked} · ganadores ${wins.length}`);await tick();
+        const ev=await bestConfig({...base,...m,p3:0,upPrice:0,upCost:0,realCTR:0,realCVR:0},m.name);
+        const o={meta:m,...ev};aiAll.push(o);
+        if(ev.sc.score>=WIN){const k=aiStore.length;aiStore.push(ev.P);wins.push(o);$("#aiCands").insertAdjacentHTML("beforeend",candHTML(o,k))}
+      }
+    }
+    const shown=document.querySelectorAll("#aiCands .cand").length;
+    if(!shown){
+      const near=[...aiAll].sort((a,b)=>b.sc.score-a.sc.score)[0];
+      $("#aiCands").innerHTML=`<div class="note" style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px"><span>Revisé <b>${aiChecked}</b> productos, cada uno con 4 precios y combo, y ninguno salió como <b>Producto ganador</b> con tu campaña actual${near?` (el más cercano: ${esc(near.meta.name)}, ${near.sc.score} puntos)`:""}.</span>
+        <span class="muted">Prueba otra categoría o <b>Buscar más ganadores</b>. Si tienes buenos videos, sube "Calidad de tus anuncios" (sección 3). ${ENGINES.some(e=>engState[e.id]==="ok")?"":"Conectar un motor web mejora mucho los datos."}</span>
+        ${aiAll.length?`<div class="btns"><button class="btn sm" id="aiNear">Ver los 3 más cercanos (no son ganadores)</button></div>`:""}</div>`;
+    }
+    $("#aiMoreWrap").hidden=false;
+    $("#aiSummary").textContent=`${shown} ganador${shown===1?"":"es"} de ${aiChecked} productos revisados.`;
+  }catch(e){aiFail(e)}finally{aiBusy("")}
+}
+$("#aiCands").addEventListener("click",e=>{
+  if(e.target.id==="aiNear"){
+    const top=[...aiAll].sort((a,b)=>b.sc.score-a.sc.score).slice(0,3);
+    $("#aiCands").innerHTML=top.map(o=>{const k=aiStore.length;aiStore.push(o.P);return candHTML(o,k)}).join("");return}
+  const i=e.target.dataset.aiload;if(i==null)return;const P=aiStore[+i];if(!P)return;
+  setForm(P);renderLearn();$("#run").scrollIntoView({behavior:"smooth",block:"center"});run()});
+$("#aiCat").innerHTML=`<option value="all">Todas las categorías</option>`+Object.entries(CATS).map(([k,c])=>`<option value="${k}">${c.n}${ML_CAT[k]?"":" (solo web)"}</option>`).join("");
+$("#aiSearch").addEventListener("click",()=>aiSearch(false));
+$("#aiMore").addEventListener("click",()=>aiSearch(true));
+$("#aiQuery").addEventListener("keydown",e=>{if(e.key==="Enter")aiSearch(false)});
+$("#aiStop").addEventListener("click",()=>aiCtl&&aiCtl.abort());
+
+async function aiFill(){
+  const name=$("#aiName").value.trim();if(!sampleFn||!name)return;
+  $("#aiErr").hidden=true;aiCtl=new AbortController();
+  try{
+    aiBusy(`Buscando precios reales de ${name}…`);
+    const [web,exa]=await Promise.all([
+      callEngine("par","web_search",{objective:`Precio en pesos colombianos de ${name} en Mercado Libre Colombia y tiendas online, y si se vende mucho`,
+        search_queries:[`${name} precio Colombia`,`site:mercadolibre.com.co ${name}`],session_id:AI_SESSION}),
+      callEngine("exa","web_search_exa",{query:`Publicación que vende ${name} en Colombia con su precio en pesos`,objective:"Precio en COP y señales de demanda",numResults:6})]);
+    let ev="";
+    if(web.data)ev+=parText(web.data,2500).text;
+    if(exa.data)ev+="\n\n"+tidy(typeof exa.data==="string"?exa.data:JSON.stringify(exa.data)).slice(0,8000);
+    aiBusy("Calculando los datos del producto…");
+    const raw=await sampleFn.json(`${AI_RULES}
+
+Estima los datos de este producto para venderlo en Colombia: "${name}".
+${ev.trim()?`Usa estas búsquedas reales de hoy para el precio percibido y las fuentes (no inventes enlaces):
+<<<
+${ev.slice(0,30000)}
+>>>`:`No hay búsquedas web disponibles: usa tu conocimiento, "sin señal directa" en "signal" y [] en "sources".`}
+
+${AI_SCHEMA}
+
+Responde solo con un objeto JSON.`,{signal:aiCtl.signal,cache:false});
+    const base=readP(),x=aiClean(Array.isArray(raw)?raw[0]:raw,base.crea);if(!x)throw {code:"invalid_json"};
+    setForm({...base,...x,p3:0,upPrice:0,upCost:0});renderLearn();
+    $("#aiCands").insertAdjacentHTML("afterbegin",`<p class="note" style="grid-column:1/-1">Datos de <b>${esc(x.name)}</b> cargados en el formulario${x.sources.length?" con precios de "+x.sources.map(s=>esc(s.site)).join(", "):""}. ${x.signal?esc(x.signal)+". ":""}${x.why?esc(x.why)+" ":""}${x.risk?"Riesgo: "+esc(x.risk):""} Revísalos y presiona <b>Simular sociedad</b>.</p>`);
+    $("#nombre").scrollIntoView({behavior:"smooth",block:"center"});
+  }catch(e){aiFail(e)}finally{aiBusy("")}
+}
+$("#aiFill").addEventListener("click",aiFill);
+$("#aiName").addEventListener("keydown",e=>{if(e.key==="Enter")aiFill()});
+(async()=>{
+  const use=n=>window.claude&&window.claude.use?window.claude.use(n).catch(()=>null):Promise.resolve(null);
+  [sampleFn,mcpNs]=await Promise.all([use("sample"),use("mcp")]);
+  $("#aiOn").hidden=!sampleFn;$("#aiOff").hidden=!!sampleFn;$("#aiPill").textContent=sampleFn?"IA activa":"IA";$("#aiPill").classList.toggle("on",!!sampleFn);
+  if(sampleFn)detectEngines();
+})();
+
+updateOffer();renderLearn();
+</script>
+</body>
+</html>
