@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "instagram": {
+      "command": "bash",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/.claude/mcp/instagram/run.sh"]
+    }
+  }
+}
