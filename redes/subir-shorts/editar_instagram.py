@@ -104,7 +104,10 @@ def main():
             hechos[t["codigo"]] = time.strftime("%Y-%m-%d %H:%M")
             PROGRESO.write_text(json.dumps(hechos, indent=2), encoding="utf-8")
             print("  ✓ Texto cambiado")
-        nav.close()
+        try:
+            nav.close()
+        except Exception:
+            pass
     print(f"\nListo. Quedan {len(TEXTOS) - len(hechos)}.")
 
 

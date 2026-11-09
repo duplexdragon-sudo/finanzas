@@ -211,7 +211,10 @@ def revisar(progreso):
             print(f"  - {texto}")
         page.screenshot(path=str(AQUI / "revisar.png"))
         print(f"\nCaptura guardada en {AQUI / 'revisar.png'}")
-        nav.close()
+        try:
+            nav.close()
+        except Exception:
+            pass
 
 
 def main():
@@ -277,7 +280,10 @@ def main():
             progreso[s["codigo"]] = {"titulo": s["titulo"], "enlace": enlace, "fecha": time.strftime("%Y-%m-%d %H:%M")}
             guardar_progreso(progreso)
             print(f"  ✓ Subido {enlace}")
-        nav.close()
+        try:
+            nav.close()
+        except Exception:
+            pass
     print(f"\nListo. Quedan {len([s for s in SHORTS if s['codigo'] not in progreso])} por subir.")
 
 
