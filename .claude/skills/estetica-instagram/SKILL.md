@@ -10,15 +10,17 @@ Objetivo: que alguien entre al perfil y en 2 segundos entienda de qué va y quie
 ## Identidad visual fija
 
 - **Fondo de marca**: negro profundo `#06030A` + morado eléctrico `#B026FF` (la misma identidad del Motor Morado).
-- **Acentos** (según `armonia-color`, complementarios divididos del morado): verde Minecraft/lima `#7CFF4F` y dorado `#FFC83D` para la palabra clave. Blanco casi puro `#F0EEF2` para el texto normal, nunca 255.
+- Contenido 100 % Valorant: la estética es la de los edits del Motor Morado.
+- **Acentos** (según `armonia-color`, nunca morado sobre morado): rojo `#FF4655` y dorado `#FFC83D` para la palabra clave, neón cian `#3FF2FF` (o el del agente) para destellos. Blanco casi puro `#F0EEF2` para el texto normal, nunca 255.
 - **Nada de letras moradas sobre fondo morado.** El morado es marco/fondo; la letra contrasta (≥ 3:1).
 - Tipografía: 1 fuente gruesa para títulos (tipo Montserrat Black / Bebas) + 1 para texto; siempre las mismas.
 
 ## Feed (cuadrícula)
 
 - Portadas de Reels en la **zona segura 1080×1350 (4:5)** centrada dentro del 1080×1920: texto y cara dentro, si no se cortan en la cuadrícula.
-- Plantilla de portada: escena de Minecraft brillante + franja/marco morado inferior + 2-4 palabras grandes ("MI AMIGO 💀", "EL WARDEN"), clave en verde o dorado, borde/sombra oscura.
-- Ritmo de la cuadrícula por series: cada serie con su color de acento (ej. "POV amigos" = verde, "Nether/Warden" = rojo-dorado, edits Valorant = cian). Se ve ordenado y la gente reconoce la serie.
+- Plantilla de portada: el agente grande y nítido (arte oficial con `arte-oficial-valorant`, ampliado con IA) sobre fondo negro-morado + 1-3 palabras grandes ("YORU", "NO PERDONA"), clave en rojo o dorado, borde/sombra oscura. El nombre del agente siempre visible.
+- Ritmo de la cuadrícula por series, cada una con su acento: **Edits de agente** = rojo, **Lore** = dorado, **Agente vs agente** = cian, **Lo nuevo de Riot** = blanco. Se ve ordenado y la gente reconoce la serie.
+- Alternar planos: cara cercana / cuerpo entero / dos agentes, para que la cuadrícula no se vea repetida.
 - Nada de capturas de video borrosas o pantallas negras como portada.
 
 ## Miniaturas de YouTube
@@ -28,9 +30,10 @@ Objetivo: que alguien entre al perfil y en 2 segundos entienda de qué va y quie
 
 ## Perfil
 
-- Foto: el logo/dragón de DuplexDragon sobre fondo morado, cara o figura grande, se lee a 110 px. La misma en YouTube e IG.
-- Destacados (5 máx., portadas iguales: ícono blanco/verde sobre círculo `#B026FF`): **Nuevo** · **POV** · **Warden** · **Valorant** · **Yo** (detrás de cámaras).
-- Primeros 3 posts fijados: el mejor Reel (Warden 33 K), un carrusel "quién soy" y el último sorteo/reto.
+- Foto: el dragón de DuplexDragon (original, sin logo de Riot) en negro-morado con brillo cian, figura grande, se lee a 110 px. La misma en YouTube e IG.
+- Banner de YouTube: los agentes de las series + "Edits y lore de Valorant · nuevo edit 7 p. m.".
+- Destacados (5 máx., portadas iguales: ícono blanco sobre círculo `#B026FF`): **Nuevo** · **Edits** · **Lore** · **Vota** (el agente que sigue) · **Proceso** (Motor Morado).
+- Primeros 3 posts fijados: el mejor edit de Valorant, un carrusel "quién soy / qué hago" y el último reto o votación.
 
 ## Checklist antes de publicar
 

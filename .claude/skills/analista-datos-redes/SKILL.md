@@ -1,6 +1,6 @@
 ---
 name: "analista-datos-redes"
-description: "Usar cuando Carlos pida revisar cómo van su YouTube (DuplexDragon, @duplex_dragon) o su Instagram, qué contenido funciona, por qué bajaron las vistas, mejores horarios, o un reporte de rendimiento: mide con vidIQ, compara contra su propio promedio y entrega 3 decisiones concretas."
+description: "Usar cuando Carlos pida revisar cómo van su YouTube (DuplexDragon, @duplex_dragon) o su Instagram, qué contenido funciona (100 % Valorant), por qué bajaron las vistas, mejores horarios, o un reporte de rendimiento: mide con vidIQ, compara contra su propio promedio y entrega 3 decisiones concretas."
 ---
 
 # Analista de datos (YouTube + Instagram)
@@ -12,13 +12,17 @@ Objetivo: que cada decisión de contenido salga de los números de Carlos, no de
 - YouTube: canal **DuplexDragon** `UCYlEih7xACf_uOIzXgE-ckg` (@duplex_dragon), conectado en vidIQ con cacarrillogomez2005@gmail.com.
 - Instagram: verificar con `vidiq_instagram_connected_accounts`. Si sale vacío o `public_fallback`, mostrar `vidiq_connect_instagram_account` con `mode: "oauth"` (cuenta profesional/creador) y esperar. Sin owner insights solo hay datos públicos: decirlo así.
 
+## El contenido ahora es 100 % Valorant
+
+Desde nov 2026 Carlos solo hace **Valorant**: edits estilo anime al ritmo y motion comics de las historias de los agentes (Motor Morado, skills `motion-comic-morado` y `editor-profesional`). Nada de Minecraft en recomendaciones, ideas, títulos ni competencia.
+
 ## Línea base medida (9 nov 2026)
 
-- 545 suscriptores, 191 218 vistas, 34 videos. Casi todo es **Shorts de memes de Minecraft** en español (Colombia).
-- Top: "MI AMIGO Y YO CUANDO VAMOS A MATAR AL WARDEN" (10 s, 33 K), "MINECRAFT COSAS QUE SUCEDEN EN MC" (29 s, 26 K, 30 comentarios), "POU: MENOS MAL QUE ESTABA TERMINANDO EL PUENTE" (21 s, 18 K).
-- Patrón: **POV / "mi amigo vs yo" de 7-30 s** rinden 5-20× más que los de 1-3 min (adivina el patrón, impostor: 250-4 K).
-- Último Short: 15 mar 2026. Ocho meses sin subir = el algoritmo dejó de empujar el canal; lo primero es volver a una frecuencia fija.
-- Actualiza esta sección cuando cambien los números (fecha arriba).
+- 545 suscriptores, 191 218 vistas, 34 videos. **Todo eso es del contenido viejo de memes de Minecraft** (el mejor: 33 K, POV de 10 s; último subido 15 mar 2026).
+- Por eso: **no comparar los videos de Valorant contra el promedio viejo.** La línea base de Valorant empieza en cero: mediana de los primeros 10 Shorts/Reels de Valorant.
+- Esperado al cambiar de nicho: los suscriptores de Minecraft no ven Valorant, así que los primeros videos tendrán menos vistas de "suscriptores" y más de "Shorts feed / explorar". Mirar fuentes de tráfico, no solo vistas.
+- Lección que sí se lleva del canal viejo: lo corto (7-30 s) con gancho en el primer segundo rindió 5-20× más que lo largo.
+- Actualiza esta sección cuando haya 10 videos de Valorant (fecha arriba).
 
 ## Flujo de análisis
 
@@ -32,8 +36,8 @@ Objetivo: que cada decisión de contenido salga de los números de Carlos, no de
    - Engagement = (likes + comentarios×3 + compartidos×5 + guardados×5) / vistas. Comentarios y compartidos pesan más que likes.
    - `breakoutScore` de vidIQ: >100 = el video superó mucho al canal; estudiar su gancho.
 3. **Comparar contra el propio canal**, no contra MrBeast: mediana de los últimos 10 videos. Un video es "ganador" si dobla la mediana.
-4. **Encontrar el porqué**: agrupar por formato (POV, amigo vs yo, adivina, reacción), duración, tema (Warden, Nether, cuevas), hora y día. Ver qué tienen en común los 3 mejores: primer segundo, texto en pantalla, audio.
-5. **Competencia y tendencias**: `vidiq_outliers` y `vidiq_instagram_tiktok_outlier_search` con "minecraft memes español" para ver qué formatos están explotando ahora; `vidiq_similar_channels` para referencias de tamaño parecido.
+4. **Encontrar el porqué**: agrupar por formato (edit al ritmo, motion comic/lore, "agente vs agente", clip), agente, canción/género (suave, rap, phonk), duración, hora y día. Ver qué tienen en común los 3 mejores: primer segundo, texto en pantalla, audio.
+5. **Competencia y tendencias**: `vidiq_outliers` y `vidiq_instagram_tiktok_outlier_search` con "valorant edit", "valorant anime edit", "valorant lore español" y el agente del video para ver qué formatos están explotando ahora; `vidiq_similar_channels` para referencias de tamaño parecido.
 6. **Entregar**:
    - 3-5 líneas de diagnóstico.
    - Tabla pequeña: top 5 y peores 5 con la métrica clave.
