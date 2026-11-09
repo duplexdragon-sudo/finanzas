@@ -104,37 +104,62 @@ def bajar(item, cookies_de=None, nav=None, page=None):
     return None
 
 
-def escribir(page, selector, texto):
-    caja = page.locator(selector).first
+def primero(page, selectores, timeout=60_000):
+    """Devuelve el primer elemento visible de una lista de selectores (YouTube cambia su página)."""
+    fin = time.time() + timeout / 1000
+    while time.time() < fin:
+        for sel in selectores:
+            loc = page.locator(sel)
+            try:
+                for i in range(loc.count()):
+                    if loc.nth(i).is_visible():
+                        return loc.nth(i)
+            except Exception:
+                pass
+        time.sleep(0.5)
+    raise RuntimeError(f"No encontré en la página: {selectores[0]}")
+
+
+def escribir(caja, page, texto):
     caja.click()
     page.keyboard.press("Control+A")
     page.keyboard.press("Delete")
-    caja.fill(texto)
+    page.keyboard.insert_text(texto)
 
 
 def subir(page, item, archivo, privado, ver):
-    page.goto(f"{STUDIO}/", wait_until="domcontentloaded")
-    page.locator("#create-icon").first.click()
-    page.locator("#text-item-0").first.click()  # "Subir videos"
-    page.locator("input[type=file]").first.set_input_files(str(archivo))
+    # Ir directo al cuadro de subida (sin depender del botón "Crear")
+    page.goto("https://www.youtube.com/upload", wait_until="domcontentloaded")
+    entrada = page.locator("input[type=file]").first
+    entrada.wait_for(state="attached", timeout=60_000)
+    entrada.set_input_files(str(archivo))
 
-    page.locator("#title-textarea #textbox").first.wait_for(timeout=120_000)
-    time.sleep(2)
-    escribir(page, "#title-textarea #textbox", item["titulo"])
-    escribir(page, "#description-textarea #textbox", item["descripcion"])
-    page.locator("tp-yt-paper-radio-button[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']").first.click()
+    cajas = ["#title-textarea #textbox", "ytcp-video-title #textbox", "#textbox[contenteditable=true]"]
+    titulo = primero(page, cajas, 180_000)
+    time.sleep(3)
+    escribir(titulo, page, item["titulo"])
+    desc = primero(page, ["#description-textarea #textbox", "ytcp-video-description #textbox"], 30_000)
+    escribir(desc, page, item["descripcion"])
+
+    primero(page, ["tp-yt-paper-radio-button[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']",
+                   "[name='VIDEO_MADE_FOR_KIDS_NOT_MFK']",
+                   "text=/no es contenido creado para ni|not made for kids/i"], 30_000).click()
 
     for _ in range(3):  # Detalles → Elementos → Comprobaciones → Visibilidad
-        page.locator("#next-button").first.click()
-        time.sleep(1.5)
+        primero(page, ["#next-button", "ytcp-button#next-button"], 30_000).click()
+        time.sleep(2)
 
-    page.locator(f"tp-yt-paper-radio-button[name='{'PRIVATE' if privado else 'PUBLIC'}']").first.click()
+    nombre = "PRIVATE" if privado else "PUBLIC"
+    primero(page, [f"tp-yt-paper-radio-button[name='{nombre}']", f"[name='{nombre}']"], 30_000).click()
 
     # Espera a que termine de subir (el botón Publicar se habilita y desaparece el % de subida)
-    hecho = page.locator("#done-button").first
+    hecho = primero(page, ["#done-button", "ytcp-button#done-button"], 30_000)
     barra = page.locator("ytcp-video-upload-progress")
-    for _ in range(600):
-        texto = barra.first.inner_text(timeout=2_000) if barra.count() else ""
+    for _ in range(900):
+        try:
+            texto = barra.first.inner_text(timeout=2_000) if barra.count() else ""
+        except Exception:
+            texto = ""
         if hecho.is_enabled() and "%" not in texto:
             break
         time.sleep(1)
@@ -142,10 +167,10 @@ def subir(page, item, archivo, privado, ver):
     if ver:
         input("  Revisa el video en el navegador y pulsa Enter para publicarlo (Ctrl+C para cancelar)... ")
     hecho.click()
-    time.sleep(5)
+    time.sleep(6)
     enlace = ""
     try:
-        enlace = page.locator("ytcp-video-info a, a.ytcp-video-info").first.get_attribute("href", timeout=15_000) or ""
+        enlace = page.locator("a[href*='youtube.com/shorts/'], a[href*='youtu.be/']").first.get_attribute("href", timeout=20_000) or ""
     except Exception:
         pass
     try:
@@ -190,7 +215,8 @@ def main():
                                                     args=["--disable-blink-features=AutomationControlled"])
         page = nav.pages[0] if nav.pages else nav.new_page()
         page.goto(STUDIO)
-        if "accounts.google.com" in page.url or not page.locator("#create-icon").count():
+        page.wait_for_load_state("domcontentloaded")
+        if "accounts.google.com" in page.url or "studio.youtube.com" not in page.url:
             input("Inicia sesión en YouTube con la cuenta de DuplexDragon en la ventana que se abrió "
                   "y, cuando veas YouTube Studio, pulsa Enter aquí... ")
         for s in lote:
@@ -201,7 +227,13 @@ def main():
             try:
                 enlace = subir(page, s, archivo, a.privado, a.ver)
             except Exception as e:
-                print(f"  ✗ Falló la subida: {e}\n  Revisa la ventana; YouTube pudo cambiar su página.")
+                try:
+                    page.screenshot(path=str(AQUI / "error.png"))
+                except Exception:
+                    pass
+                print(f"  ✗ Falló la subida: {str(e).splitlines()[0]}\n"
+                      f"  Guardé una captura en {AQUI / 'error.png'}: mándasela a Claude.")
+                input("  Pulsa Enter para cerrar... ")
                 break
             progreso[s["codigo"]] = {"titulo": s["titulo"], "enlace": enlace, "fecha": time.strftime("%Y-%m-%d %H:%M")}
             guardar_progreso(progreso)
