@@ -34,13 +34,37 @@ def con_sesion(nav):
     return any(c["name"] == "sessionid" and c["value"] for c in nav.cookies("https://www.tiktok.com"))
 
 
-def escribir_texto(page, texto):
-    caja = page.locator("div.public-DraftEditor-content, div[contenteditable='true']").first
-    caja.wait_for(timeout=180_000)
-    time.sleep(2)
-    caja.click()
-    page.keyboard.press("Control+A")
-    page.keyboard.press("Delete")
+def escribir_texto(page, texto, codigo):
+    # La caja de descripción visible, que TikTok llena con el nombre del archivo
+    cajas = page.locator("div[contenteditable='true']")
+    caja = None
+    fin = time.time() + 180
+    while time.time() < fin and caja is None:
+        for i in range(cajas.count()):
+            c = cajas.nth(i)
+            try:
+                if c.is_visible() and codigo in (c.inner_text() or ""):
+                    caja = c
+                    break
+            except Exception:
+                pass
+        time.sleep(1)
+    if caja is None:
+        raise RuntimeError("No encontré la caja de descripción de TikTok")
+    time.sleep(1)
+    try:
+        caja.click(timeout=8_000)
+    except Exception:
+        caja.focus()
+    page.keyboard.press("End")
+    for _ in range(3):
+        page.keyboard.press("Control+A")
+        page.keyboard.press("Backspace")
+        time.sleep(0.3)
+        if not (caja.inner_text() or "").strip():
+            break
+    if codigo in (caja.inner_text() or ""):
+        raise RuntimeError("No pude borrar el nombre del archivo en la descripción")
     lineas = texto.split("\n")
     for i, linea in enumerate(lineas):
         if linea.startswith("#"):
@@ -56,6 +80,9 @@ def escribir_texto(page, texto):
                 page.keyboard.insert_text(linea)
             if i < len(lineas) - 1:
                 page.keyboard.press("Enter")
+    time.sleep(1)
+    if lineas[0][:20] not in (caja.inner_text() or ""):
+        raise RuntimeError("El texto no quedó escrito en la descripción")
 
 
 def subir(page, item, archivo, ver):
@@ -63,7 +90,7 @@ def subir(page, item, archivo, ver):
     entrada = page.locator("input[type=file]").first
     entrada.wait_for(state="attached", timeout=60_000)
     entrada.set_input_files(str(archivo))
-    escribir_texto(page, item["texto"])
+    escribir_texto(page, item["texto"], item["codigo"])
 
     boton = page.locator("button[data-e2e='post_video_button']")
     if not boton.count():
