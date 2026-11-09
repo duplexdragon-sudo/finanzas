@@ -26,8 +26,8 @@ Desde nov 2026 Carlos solo hace **Valorant**: edits estilo anime al ritmo y moti
   - Ganadores = **historias entre dos agentes / emoción**: Omen + Sage 40 375 vistas (783 compartidos, 1 352 guardados), Deadlock 13 500, Chamber + Viper 9 732. Edits de un solo agente "poderoso" ≈ 2 000.
   - Otros juegos (God of War 345, Hitman 446, RDR2 1 051) rinden menos: confirma el 100 % Valorant.
   - Último post: 25 jun 2026, justo después del mejor Reel. Volver con la parte 2 de Omen + Sage.
-  - Textos reescritos de los 20 Reels: https://claude.ai/artifact/KkDWeerewJx9WkdpYibvWq (Instagram no permite editar captions por API: Carlos los pega a mano).
-- YouTube no tiene Shorts de Valorant (solo un directo vacío de 2024): subir allí los Reels de Valorant es crecimiento gratis.
+  - Textos reescritos de los 20 Reels: https://claude.ai/artifact/KkDWeerewJx9WkdpYibvWq Aplicados los 20 el 9 nov 2026 con `redes/subir-shorts/editar_instagram.py` (Instagram no permite editar captions por API: la herramienta usa Brave con la sesión de Carlos).
+- YouTube: los Reels llevan canciones con licencia solo para Instagram; al subirlos a Shorts, Content ID los bloquea (Deadlock: "Arabella" de Arctic Monkeys, bloqueado en todo el mundo). Subir a YouTube solo el edit sin música y poner la canción desde el editor de Shorts de la app.
 - Actualiza esta sección cuando haya 10 videos de Valorant nuevos (fecha arriba).
 
 ## Flujo de análisis
