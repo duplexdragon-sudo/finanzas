@@ -85,12 +85,65 @@ def escribir_texto(page, texto, codigo):
         raise RuntimeError("El texto no quedó escrito en la descripción")
 
 
+def bajar_portada(page, item):
+    """Baja la portada del Reel de Instagram (la misma imagen que se ve en el perfil)."""
+    destino = AQUI / "videos" / f"{item['codigo']}.jpg"
+    if destino.exists():
+        return destino
+    urls = [item.get("portada")]
+    try:
+        p2 = page.context.new_page()
+        p2.goto(item["instagram"], wait_until="domcontentloaded")
+        time.sleep(3)
+        og = p2.locator("meta[property='og:image']").first.get_attribute("content", timeout=5_000)
+        p2.close()
+        urls.append(og)
+    except Exception:
+        pass
+    for u in urls:
+        if not u:
+            continue
+        try:
+            r = page.context.request.get(u, timeout=30_000)
+            if r.ok and len(r.body()) > 5_000:
+                destino.write_bytes(r.body())
+                return destino
+        except Exception:
+            pass
+    return None
+
+
+def poner_portada(page, imagen):
+    """Editar portada → Cargar portada → imagen de Instagram → Confirmar. Si falla, deja la de TikTok."""
+    try:
+        page.get_by_text(re.compile(r"editar portada|edit cover", re.I)).first.click(timeout=15_000)
+        time.sleep(2)
+        page.get_by_text(re.compile(r"cargar portada|subir portada|upload cover", re.I)).first.click(timeout=10_000)
+        time.sleep(1)
+        page.locator("input[type=file][accept*='image']").last.set_input_files(str(imagen))
+        time.sleep(4)
+        page.get_by_role("button", name=re.compile(r"^\s*(confirmar|guardar|listo|confirm|save|done)\s*$", re.I)).last.click(timeout=15_000)
+        time.sleep(2)
+        print("  ✓ Portada de Instagram puesta")
+    except Exception as e:
+        print(f"  ! No pude poner la portada ({str(e).splitlines()[0][:80]}); queda la de TikTok.")
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+
+
 def subir(page, item, archivo, ver):
     page.goto(SUBIR, wait_until="domcontentloaded")
     entrada = page.locator("input[type=file]").first
     entrada.wait_for(state="attached", timeout=60_000)
     entrada.set_input_files(str(archivo))
     escribir_texto(page, item["texto"], item["codigo"])
+    imagen = bajar_portada(page, item)
+    if imagen:
+        poner_portada(page, imagen)
+    else:
+        print("  ! No pude bajar la portada de Instagram; queda la de TikTok.")
 
     boton = page.locator("button[data-e2e='post_video_button']")
     if not boton.count():
