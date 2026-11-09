@@ -22,7 +22,13 @@ Desde nov 2026 Carlos solo hace **Valorant**: edits estilo anime al ritmo y moti
 - Por eso: **no comparar los videos de Valorant contra el promedio viejo.** La línea base de Valorant empieza en cero: mediana de los primeros 10 Shorts/Reels de Valorant.
 - Esperado al cambiar de nicho: los suscriptores de Minecraft no ven Valorant, así que los primeros videos tendrán menos vistas de "suscriptores" y más de "Shorts feed / explorar". Mirar fuentes de tráfico, no solo vistas.
 - Lección que sí se lleva del canal viejo: lo corto (7-30 s) con gancho en el primer segundo rindió 5-20× más que lo largo.
-- Actualiza esta sección cuando haya 10 videos de Valorant (fecha arriba).
+- **Instagram @duplex_dragon (`platformAccountId` 40657586163839891, owner insights activos)**: 553 seguidores, 46 posts leídos. 20 Reels de Valorant (3 abr - 25 jun 2026); mediana ≈ 1 900 vistas.
+  - Ganadores = **historias entre dos agentes / emoción**: Omen + Sage 40 375 vistas (783 compartidos, 1 352 guardados), Deadlock 13 500, Chamber + Viper 9 732. Edits de un solo agente "poderoso" ≈ 2 000.
+  - Otros juegos (God of War 345, Hitman 446, RDR2 1 051) rinden menos: confirma el 100 % Valorant.
+  - Último post: 25 jun 2026, justo después del mejor Reel. Volver con la parte 2 de Omen + Sage.
+  - Textos reescritos de los 20 Reels: https://claude.ai/artifact/KkDWeerewJx9WkdpYibvWq (Instagram no permite editar captions por API: Carlos los pega a mano).
+- YouTube no tiene Shorts de Valorant (solo un directo vacío de 2024): subir allí los Reels de Valorant es crecimiento gratis.
+- Actualiza esta sección cuando haya 10 videos de Valorant nuevos (fecha arriba).
 
 ## Flujo de análisis
 
