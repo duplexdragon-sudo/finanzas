@@ -2,7 +2,7 @@
 
 1. Baja cada Reel de Instagram con yt-dlp (o usa tu archivo original si lo pones en
    la carpeta videos/ con el nombre <codigo>.mp4).
-2. Abre YouTube Studio en un navegador con tu sesión (la primera vez inicias sesión
+2. Abre YouTube Studio en Brave (o Chrome/Edge) con tu sesión (la primera vez inicias sesión
    a mano; queda guardada en la carpeta perfil/).
 3. Sube cada video con su título y descripción de shorts.json, marca "No es para
    niños" y lo deja público o programado.
@@ -27,6 +27,23 @@ PERFIL = AQUI / "perfil"
 PROGRESO = AQUI / "progreso.json"
 SHORTS = json.loads((AQUI / "shorts.json").read_text(encoding="utf-8"))
 STUDIO = "https://studio.youtube.com"
+
+
+def buscar_navegador():
+    """Brave primero (el de Carlos), luego Chrome y Edge."""
+    import os
+    rutas = []
+    for base in (os.environ.get("PROGRAMFILES", r"C:\Program Files"),
+                 os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)"),
+                 os.environ.get("LOCALAPPDATA", "")):
+        if base:
+            rutas += [Path(base) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+                      Path(base) / "Google/Chrome/Application/chrome.exe",
+                      Path(base) / "Microsoft/Edge/Application/msedge.exe"]
+    for r in rutas:
+        if r.exists():
+            return str(r)
+    return None
 
 
 def leer_progreso():
@@ -136,8 +153,13 @@ def main():
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as pw:
-        nav = pw.chromium.launch_persistent_context(str(PERFIL), headless=False, channel="chrome",
-                                                    viewport={"width": 1400, "height": 900})
+        exe = buscar_navegador()
+        print(f"Navegador: {exe or 'Chromium de Playwright'}")
+        if not exe:
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
+        nav = pw.chromium.launch_persistent_context(str(PERFIL), headless=False, executable_path=exe,
+                                                    viewport={"width": 1400, "height": 900},
+                                                    args=["--disable-blink-features=AutomationControlled"])
         page = nav.pages[0] if nav.pages else nav.new_page()
         page.goto(STUDIO)
         if "accounts.google.com" in page.url or not page.locator("#create-icon").count():
