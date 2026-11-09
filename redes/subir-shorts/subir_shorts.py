@@ -180,18 +180,57 @@ def subir(page, item, archivo, privado, ver):
     return enlace
 
 
+def abrir_navegador(pw):
+    exe = buscar_navegador()
+    if not exe:
+        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
+    return pw.chromium.launch_persistent_context(str(PERFIL), headless=False, executable_path=exe,
+                                                 viewport={"width": 1400, "height": 900},
+                                                 args=["--disable-blink-features=AutomationControlled"])
+
+
+def revisar(progreso):
+    """Lista lo subido y lee la tabla de Shorts de YouTube Studio (visibilidad, restricciones, vistas)."""
+    print("\nSubidos con la herramienta:")
+    for i, (cod, d) in enumerate(progreso.items(), 1):
+        print(f"  {i}. {d['titulo']}\n     {d.get('enlace') or '(sin enlace)'}  ·  {d['fecha']}")
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as pw:
+        nav = abrir_navegador(pw)
+        page = nav.pages[0] if nav.pages else nav.new_page()
+        page.goto("https://studio.youtube.com/channel/UCYlEih7xACf_uOIzXgE-ckg/videos/short")
+        try:
+            page.locator("ytcp-video-row").first.wait_for(timeout=60_000)
+            time.sleep(3)
+        except Exception:
+            print("\nNo pude leer la tabla de YouTube Studio.")
+        filas = page.locator("ytcp-video-row")
+        print("\nYouTube Studio (Shorts más recientes):")
+        for i in range(min(filas.count(), len(progreso) + 2)):
+            texto = " | ".join(t.strip() for t in filas.nth(i).inner_text().splitlines() if t.strip())
+            print(f"  - {texto}")
+        page.screenshot(path=str(AQUI / "revisar.png"))
+        print(f"\nCaptura guardada en {AQUI / 'revisar.png'}")
+        nav.close()
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cuantos", type=int, default=1, help="cuántos subir en esta corrida (default 1)")
     ap.add_argument("--solo-bajar", action="store_true", help="solo descargar los videos")
     ap.add_argument("--privado", action="store_true", help="subir en privado en vez de público")
     ap.add_argument("--ver", action="store_true", help="pausar antes de publicar cada video")
+    ap.add_argument("--revisar", action="store_true", help="mostrar el estado de los Shorts subidos")
     ap.add_argument("--cookies-de", metavar="NAVEGADOR", help="usar tu sesión de Instagram de chrome/edge/firefox para bajar")
     a = ap.parse_args()
 
     progreso = leer_progreso()
     pendientes = [s for s in SHORTS if s["codigo"] not in progreso]
     print(f"{len(SHORTS) - len(pendientes)} subidos, {len(pendientes)} pendientes.")
+
+    if a.revisar:
+        revisar(progreso)
+        return
 
     if a.solo_bajar:
         for s in pendientes:
