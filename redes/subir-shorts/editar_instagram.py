@@ -87,8 +87,13 @@ def main():
         page = nav.pages[0] if nav.pages else nav.new_page()
         page.goto("https://www.instagram.com/")
         time.sleep(4)
-        if "login" in page.url or page.locator("input[name='username']").count():
-            input("Inicia sesión en Instagram (@duplex_dragon) en la ventana de Brave y pulsa Enter aquí... ")
+        while not any(c["name"] == "sessionid" and c["value"] for c in nav.cookies("https://www.instagram.com")):
+            input("Instagram no tiene la sesión abierta. En la ventana de Brave toca 'Usar otro perfil' "
+                  "e inicia sesión con @duplex_dragon. Cuando veas tu inicio de Instagram, pulsa Enter aquí... ")
+        page.goto("https://www.instagram.com/duplex_dragon/")
+        time.sleep(4)
+        if not page.get_by_text(re.compile(r"editar perfil|edit profile", re.I)).count():
+            input("Parece que la sesión no es de @duplex_dragon. Cambia de cuenta en Brave y pulsa Enter... ")
         for t in pendientes:
             print(f"\n▶ {t['agente']}  (instagram.com/reel/{t['codigo']})")
             try:
