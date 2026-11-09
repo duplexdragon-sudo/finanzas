@@ -57,23 +57,51 @@ def guardar_progreso(p):
     PROGRESO.write_text(json.dumps(p, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def bajar(item, cookies_de):
+COOKIES = AQUI / "cookies.txt"
+
+
+def exportar_cookies(nav):
+    """Guarda las cookies de Instagram de la ventana de la herramienta en formato de yt-dlp."""
+    lineas = ["# Netscape HTTP Cookie File"]
+    hay_sesion = False
+    for c in nav.cookies("https://www.instagram.com"):
+        dom = c["domain"]
+        hay_sesion |= c["name"] == "sessionid"
+        lineas.append("\t".join([dom, "TRUE" if dom.startswith(".") else "FALSE", c.get("path", "/"),
+                                 "TRUE" if c.get("secure") else "FALSE",
+                                 str(int(c["expires"])) if c.get("expires", -1) > 0 else "0",
+                                 c["name"], c["value"]]))
+    COOKIES.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+    return hay_sesion
+
+
+def bajar(item, cookies_de=None, nav=None, page=None):
     VIDEOS.mkdir(exist_ok=True)
     for ext in (".mp4", ".mov"):
         f = VIDEOS / f"{item['codigo']}{ext}"
         if f.exists():
             return f
     destino = VIDEOS / f"{item['codigo']}.mp4"
-    cmd = [sys.executable, "-m", "yt_dlp", "-f", "mp4/best", "-o", str(destino), item["instagram"]]
-    if cookies_de:
-        cmd[3:3] = ["--cookies-from-browser", cookies_de]
+    base = [sys.executable, "-m", "yt_dlp", "-q", "--no-warnings", "-f", "mp4/best", "-o", str(destino)]
     print(f"  Bajando {item['instagram']}")
-    r = subprocess.run(cmd)
-    if r.returncode != 0 or not destino.exists():
-        print(f"  ✗ No se pudo bajar. Guarda el video a mano como videos/{item['codigo']}.mp4"
-              " (o prueba con --cookies-de chrome).")
-        return None
-    return destino
+    intentos = [[]]
+    if cookies_de:
+        intentos.append(["--cookies-from-browser", cookies_de])
+    if nav is not None:
+        intentos.append("ventana")
+    for extra in intentos:
+        if extra == "ventana":
+            if not exportar_cookies(nav):
+                page.goto("https://www.instagram.com/accounts/login/")
+                input("  Instagram pide sesión: inicia sesión en Instagram en la ventana de Brave "
+                      "y pulsa Enter aquí... ")
+                exportar_cookies(nav)
+            extra = ["--cookies", str(COOKIES)]
+        subprocess.run(base + extra + [item["instagram"]])
+        if destino.exists():
+            return destino
+    print(f"  ✗ No se pudo bajar. Guarda el video a mano como videos/{item['codigo']}.mp4")
+    return None
 
 
 def escribir(page, selector, texto):
@@ -167,7 +195,7 @@ def main():
                   "y, cuando veas YouTube Studio, pulsa Enter aquí... ")
         for s in lote:
             print(f"\n▶ {s['titulo']}")
-            archivo = bajar(s, a.cookies_de)
+            archivo = bajar(s, a.cookies_de, nav, page)
             if not archivo:
                 continue
             try:
