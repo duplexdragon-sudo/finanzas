@@ -2,171 +2,521 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Recortador de Clips</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>
-@font-face{font-family:Anton;src:url(/fuentes/Anton-Regular.ttf)}
-@font-face{font-family:Bebas;src:url(/fuentes/BebasNeue-Regular.ttf)}
-:root{--fondo:#0F1923;--panel:#16232f;--borde:#24384a;--rojo:#FF4655;--texto:#ECE8E1;--suave:#8b9bab;--verde:#3fd6a5}
+@font-face{font-family:"Anton Local";src:url(/fuentes/Anton-Regular.ttf)}
+/* Layout: barra de control a la izquierda (subir + opciones), trabajos y clips a la derecha; en celular, una columna.
+   Mundo visual: el HUD de Valorant — azul noche, rojo de impacto, esquinas cortadas, números en monoespaciada. */
+:root{
+  --noche:#0F1923; --panel:#15212D; --hundido:#0B131B; --linea:#26394A; --linea-viva:#3A5468;
+  --rojo:#FF4655; --rojo-suave:#FF465522; --hueso:#ECE8E1; --gris:#8FA0AF; --gris-2:#5D7183;
+  --verde:#35D6A6; --ambar:#F5B54A; --azul:#5AB7FF;
+  --f-display:"Anton","Anton Local",Impact,"Arial Narrow",sans-serif;
+  --f-cond:"Barlow Condensed","Arial Narrow",sans-serif;
+  --f-texto:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --corte:10px;
+  color-scheme:dark;
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--fondo);color:var(--texto);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-header{padding:22px 16px 8px;max-width:1100px;margin:auto;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-h1{font-family:Anton,Impact,sans-serif;font-weight:400;letter-spacing:.5px;margin:0;font-size:34px}
-h1 span{color:var(--rojo)}
-header small{color:var(--suave)}
-main{max-width:1100px;margin:auto;padding:8px 16px 60px}
-.zona{border:2px dashed var(--borde);border-radius:14px;padding:34px 16px;text-align:center;cursor:pointer;background:var(--panel);transition:.15s}
-.zona.encima,.zona:hover{border-color:var(--rojo);background:#1b2a38}
-.zona b{font-family:Bebas,sans-serif;font-size:28px;letter-spacing:1px;display:block}
-.zona p{margin:6px 0 0;color:var(--suave)}
-details{background:var(--panel);border:1px solid var(--borde);border-radius:12px;margin:14px 0;padding:4px 14px}
-summary{cursor:pointer;padding:10px 0;font-weight:600}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;padding-bottom:12px}
-label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--suave)}
-input,select,textarea{background:#0c141c;border:1px solid var(--borde);color:var(--texto);border-radius:8px;padding:8px;font:inherit}
-textarea{min-height:60px;resize:vertical}
-label.ch{flex-direction:row;align-items:center;gap:8px}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-.chip{font-size:12px;padding:3px 10px;border-radius:99px;background:#0c141c;border:1px solid var(--borde);color:var(--suave)}
-.chip.ok{color:var(--verde);border-color:#1f5e4b}
-.chip.no{color:#f0a35b;border-color:#6b4a26}
-.trabajo{background:var(--panel);border:1px solid var(--borde);border-radius:14px;padding:14px;margin:14px 0}
-.cab{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
-.cab h3{margin:0;font-size:16px;word-break:break-all}
-.barra{height:8px;background:#0c141c;border-radius:9px;overflow:hidden;margin:10px 0 4px}
-.barra i{display:block;height:100%;background:var(--rojo);width:0;transition:width .4s}
-.paso{font-size:13px;color:var(--suave)}
-.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:12px}
-.clip{background:#0c141c;border-radius:12px;overflow:hidden;border:1px solid var(--borde)}
-.clip video{width:100%;aspect-ratio:9/16;display:block;background:#000}
-.clip .info{padding:8px 10px}
-.clip .tit{font-family:Bebas,sans-serif;font-size:21px;letter-spacing:.5px;line-height:1.1}
-.clip .meta{font-size:12px;color:var(--suave);margin:4px 0 8px}
-.tipo{display:inline-block;font-size:11px;text-transform:uppercase;font-weight:700;padding:1px 7px;border-radius:4px;background:var(--rojo);color:#fff;margin-right:6px}
-.btn{display:inline-block;background:var(--rojo);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-weight:700;text-decoration:none;cursor:pointer;font-size:13px}
-.btn.sec{background:transparent;border:1px solid var(--borde);color:var(--texto)}
-.acciones{display:flex;gap:8px;flex-wrap:wrap}
-pre{white-space:pre-wrap;font-size:11.5px;color:var(--suave);max-height:180px;overflow:auto;background:#0c141c;padding:8px;border-radius:8px}
-.subida{font-size:13px;color:var(--suave);margin-top:8px}
+[hidden]{display:none!important}
+html,body{background:var(--noche);color:var(--hueso)}
+body{margin:0;font:15px/1.5 var(--f-texto);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--rojo);outline-offset:2px}
+.envoltura{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+
+/* ---------- barra superior ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:20px 18px;border-bottom:1px solid var(--linea);margin-bottom:22px}
+.marca{display:flex;align-items:center;gap:12px}
+.marca svg{flex:none}
+.marca h1{margin:0;font:400 30px/1 var(--f-display);letter-spacing:.02em;text-transform:uppercase}
+.marca h1 em{font-style:normal;color:var(--rojo)}
+.marca small{display:block;font:600 12px/1.2 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--gris);margin-top:4px}
+.estado-chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 12px/1 var(--f-cond);letter-spacing:.08em;text-transform:uppercase;padding:7px 10px;border:1px solid var(--linea);background:var(--hundido);color:var(--gris)}
+.chip i{width:7px;height:7px;border-radius:50%;background:var(--gris-2)}
+.chip.ok i{background:var(--verde);box-shadow:0 0 8px var(--verde)}
+.chip.aviso i{background:var(--ambar)}
+.chip.demo{border-color:var(--rojo);color:var(--rojo)}
+
+/* ---------- distribución ---------- */
+.rejilla{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:900px){.rejilla{grid-template-columns:minmax(0,1fr)}}
+.control{position:sticky;top:16px;display:flex;flex-direction:column;gap:16px}
+@media (max-width:900px){.control{position:static}}
+.titulo-seccion{font:700 13px/1 var(--f-cond);letter-spacing:.16em;text-transform:uppercase;color:var(--gris);margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.titulo-seccion b{color:var(--hueso);font-weight:700}
+
+/* ---------- zona de subida ---------- */
+.zona{position:relative;display:grid;place-items:center;text-align:center;gap:6px;padding:30px 18px;background:var(--panel);border:1px dashed var(--linea-viva);cursor:pointer;transition:border-color .15s,background .15s;
+  clip-path:polygon(0 0,calc(100% - var(--corte)) 0,100% var(--corte),100% 100%,var(--corte) 100%,0 calc(100% - var(--corte)))}
+.zona:hover,.zona.encima{border-color:var(--rojo);background:#192836}
+.zona .icono{width:46px;height:46px;display:grid;place-items:center;background:var(--rojo);margin-bottom:6px;clip-path:polygon(0 0,100% 0,100% 70%,70% 100%,0 100%)}
+.zona strong{font:400 24px/1.1 var(--f-display);letter-spacing:.02em;text-transform:uppercase}
+.zona span{color:var(--gris);font-size:13.5px}
+.zona input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.cola-subida{display:flex;flex-direction:column;gap:6px}
+.subiendo{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;font-size:13px;background:var(--hundido);padding:8px 10px;border-left:2px solid var(--rojo)}
+.subiendo .nombre{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subiendo .pct{font:500 12px var(--f-num);color:var(--gris)}
+.subiendo .barrita{grid-column:1/-1;height:3px;background:var(--linea)}
+.subiendo .barrita i{display:block;height:100%;background:var(--rojo);width:0}
+
+/* ---------- qué buscar ---------- */
+.modos{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.modo{position:relative;text-align:left;padding:12px 12px 11px;background:var(--panel);border:1px solid var(--linea);cursor:pointer;transition:border-color .15s}
+.modo:hover{border-color:var(--linea-viva)}
+.modo[aria-pressed="true"]{border-color:var(--rojo);background:linear-gradient(180deg,var(--rojo-suave),transparent 80%),var(--panel)}
+.modo[aria-pressed="true"]::after{content:"";position:absolute;top:-1px;right:-1px;width:14px;height:14px;background:var(--rojo);clip-path:polygon(0 0,100% 0,100% 100%)}
+.modo b{display:block;font:700 17px/1.1 var(--f-cond);letter-spacing:.03em;text-transform:uppercase}
+.modo span{display:block;font-size:12.5px;color:var(--gris);margin-top:3px;line-height:1.35}
+
+/* ---------- ajustes ---------- */
+.panel{background:var(--panel);border:1px solid var(--linea);padding:14px}
+.fila{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:9px;border-bottom:1px solid var(--linea)}
+.fila:last-child{border-bottom:0}
+.fila label,.fila .lbl{font-weight:600;font-size:14px}
+.fila small{display:block;color:var(--gris);font-size:12px;font-weight:400}
+.paso-num{display:inline-flex;align-items:center;border:1px solid var(--linea)}
+.paso-num button{width:32px;height:32px;background:var(--hundido);border:0;cursor:pointer;font-size:18px;line-height:1}
+.paso-num button:hover{color:var(--rojo)}
+.paso-num input{width:44px;height:32px;text-align:center;background:transparent;border:0;font:500 14px var(--f-num);-moz-appearance:textfield}
+.paso-num input::-webkit-inner-spin-button{-webkit-appearance:none}
+.rango{display:flex;align-items:center;gap:6px;font:500 13px var(--f-num);color:var(--gris)}
+.rango input{width:52px;height:32px;text-align:center;background:var(--hundido);border:1px solid var(--linea);font:500 14px var(--f-num);color:var(--hueso)}
+.segmentos{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--linea);margin-top:8px}
+.segmentos button{padding:8px 4px;background:var(--hundido);border:0;border-right:1px solid var(--linea);cursor:pointer;font:600 12.5px/1.1 var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--gris)}
+.segmentos button:last-child{border-right:0}
+.segmentos button[aria-pressed="true"]{background:var(--rojo);color:#fff}
+.formato-ayuda{font-size:12.5px;color:var(--gris);margin:8px 0 0;min-height:2.6em}
+details.mas{border-top:1px solid var(--linea);margin-top:6px}
+details.mas summary{cursor:pointer;list-style:none;padding-top:12px;font:700 13px var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--gris)}
+details.mas summary::before{content:"+ ";color:var(--rojo)}
+details.mas[open] summary::before{content:"– "}
+.campos{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:12px}
+.campos .ancho{grid-column:1/-1}
+.campo{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--gris);min-width:0}
+.campo input,.campo select,.campo textarea{background:var(--hundido);border:1px solid var(--linea);padding:8px 9px;color:var(--hueso);font-size:14px;min-width:0;width:100%}
+.campo textarea{min-height:64px;resize:vertical}
+.campo input[type=color]{padding:2px;height:37px}
+.check{flex-direction:row;align-items:center;gap:8px;color:var(--hueso)}
+.check input{width:auto}
+
+/* ---------- trabajos ---------- */
+.vacio{border:1px dashed var(--linea);padding:36px 20px;text-align:center;color:var(--gris)}
+.vacio b{display:block;font:400 22px var(--f-display);color:var(--hueso);text-transform:uppercase;margin-bottom:6px}
+.trabajo{background:var(--panel);border:1px solid var(--linea);margin-bottom:18px}
+.trabajo-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:16px 16px 12px}
+.trabajo-cab h2{margin:0;font:700 20px/1.15 var(--f-cond);letter-spacing:.02em;word-break:break-word;min-width:0}
+.trabajo-cab .meta{font:500 12px var(--f-num);color:var(--gris);margin-top:4px}
+.pill{display:inline-block;font:700 11px/1 var(--f-cond);letter-spacing:.12em;text-transform:uppercase;padding:5px 8px;vertical-align:middle;margin-left:8px}
+.pill.listo{background:#35D6A622;color:var(--verde)}
+.pill.procesando,.pill.en-cola{background:#F5B54A22;color:var(--ambar)}
+.pill.error,.pill.interrumpido{background:var(--rojo-suave);color:var(--rojo)}
+.acciones{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;background:var(--rojo);color:#fff;border:0;cursor:pointer;text-decoration:none;font:700 13px/1 var(--f-cond);letter-spacing:.1em;text-transform:uppercase;
+  clip-path:polygon(0 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%)}
+.btn:hover{filter:brightness(1.1)}
+.btn.sec{background:var(--hundido);color:var(--hueso);box-shadow:inset 0 0 0 1px var(--linea-viva)}
+.btn.chico{padding:7px 10px;font-size:12px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+
+/* etapas */
+.etapas{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;padding:0 16px 14px}
+.etapa{font:600 11.5px/1.2 var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--gris-2);min-width:0}
+.etapa .tira{height:4px;background:var(--linea);margin-bottom:6px;overflow:hidden}
+.etapa .tira i{display:block;height:100%;width:0;background:var(--rojo);transition:width .5s}
+.etapa.hecha{color:var(--gris)} .etapa.hecha .tira i{width:100%;background:var(--gris-2)}
+.etapa.activa{color:var(--hueso)}
+.paso-texto{padding:0 16px 14px;font-size:13.5px;color:var(--gris)}
+.paso-texto b{font:500 13px var(--f-num);color:var(--hueso)}
+
+/* línea de tiempo */
+.linea{padding:4px 16px 14px}
+.linea-cab{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.leyenda{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--gris)}
+.leyenda span::before{content:"";display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
+.leyenda .l-hype::before{background:var(--azul);opacity:.7}
+.leyenda .l-kill::before{background:var(--hueso);width:2px}
+.leyenda .l-clip::before{background:var(--rojo);opacity:.55}
+.grafica{position:relative;background:var(--hundido);border:1px solid var(--linea)}
+.grafica svg{display:block;width:100%;height:110px}
+.marcas-t{display:flex;justify-content:space-between;font:500 11px var(--f-num);color:var(--gris);padding:4px 2px 0}
+.num-banda{position:absolute;top:5px;margin-left:4px;font:500 11px var(--f-num);color:var(--hueso);pointer-events:none}
+.grafica .tip{position:absolute;pointer-events:none;background:var(--noche);border:1px solid var(--linea-viva);padding:5px 8px;font:500 12px var(--f-num);white-space:nowrap;transform:translate(-50%,-110%)}
+
+/* filtros y clips */
+.filtros{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 12px}
+.filtro{padding:6px 10px;background:var(--hundido);border:1px solid var(--linea);cursor:pointer;font:600 12.5px/1 var(--f-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--gris)}
+.filtro b{font:500 11px var(--f-num);margin-left:5px;color:var(--gris-2)}
+.filtro[aria-pressed="true"]{border-color:var(--hueso);color:var(--hueso)}
+.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;padding:0 16px 16px}
+.clip{background:var(--hundido);border:1px solid var(--linea);display:flex;flex-direction:column;min-width:0;transition:border-color .2s}
+.clip.marcado{border-color:var(--rojo);box-shadow:0 0 0 1px var(--rojo)}
+.marco{position:relative;aspect-ratio:9/16;max-width:100%;background:#05090d;overflow:hidden}
+.marco video,.marco img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.marco .rango-clip{position:absolute;left:8px;bottom:8px;font:500 11.5px var(--f-num);background:#0F1923d9;padding:3px 6px}
+.marco .puesto{position:absolute;left:0;top:0;font:400 22px/1 var(--f-display);background:var(--rojo);color:#fff;padding:6px 9px 5px;clip-path:polygon(0 0,100% 0,100% 70%,75% 100%,0 100%)}
+.marco .jugar{position:absolute;inset:0;display:grid;place-items:center;background:transparent;border:0;cursor:pointer}
+.marco .jugar span{width:52px;height:52px;border-radius:50%;background:#0F1923b3;display:grid;place-items:center;border:1px solid #ffffff40}
+.marco.reproduciendo .jugar{display:none}
+.portada-demo{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;padding:34px 10px 44px;text-align:center}
+.portada-demo .t{font:400 19px/1.05 var(--f-display);text-transform:uppercase;text-shadow:0 2px 0 #000}
+.portada-demo .s{font:400 16px/1.1 var(--f-display);text-transform:uppercase}
+.portada-demo .s em{font-style:normal;color:var(--rojo)}
+.cuerpo{padding:10px 10px 12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.cuerpo h3{margin:0;font:400 19px/1.08 var(--f-display);letter-spacing:.01em;text-transform:uppercase;word-break:break-word}
+.tipo-linea{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tipo{font:700 11px/1 var(--f-cond);letter-spacing:.12em;text-transform:uppercase;padding:4px 6px;border:1px solid currentColor}
+.tipo.kill,.tipo.multikill,.tipo.ace,.tipo.clutch,.tipo.jugada{color:var(--rojo)}
+.tipo.gracioso,.tipo.reaccion{color:var(--ambar)}
+.tipo.entrevista{color:var(--azul)}
+.tipo.hype{color:var(--verde)}
+.nota{display:flex;align-items:center;gap:6px;font:500 12px var(--f-num);color:var(--gris)}
+.nota .medidor{width:44px;height:4px;background:var(--linea)}
+.nota .medidor i{display:block;height:100%;background:var(--hueso)}
+.motivo{font-size:12.5px;color:var(--gris);line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.cuerpo .acciones{margin-top:auto}
+.registro{border-top:1px solid var(--linea)}
+.registro summary{cursor:pointer;padding:10px 16px;font:700 12px var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--gris)}
+.registro pre{margin:0;padding:0 16px 14px;max-height:200px;overflow:auto;white-space:pre-wrap;font:500 11.5px/1.5 var(--f-num);color:var(--gris)}
+.confirmar{display:flex;align-items:center;gap:8px;font-size:13px}
+.aviso-demo{background:var(--rojo-suave);border:1px solid #FF465566;padding:10px 14px;font-size:13.5px;margin-bottom:16px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--hueso);color:var(--noche);padding:10px 16px;font:700 13px var(--f-cond);letter-spacing:.08em;text-transform:uppercase;z-index:20}
+@media (max-width:520px){.clips{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 10px 12px}.cuerpo h3{font-size:16px}.motivo{display:none}.cuerpo .acciones .btn{flex:1}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header><h1>RECORTADOR <span>DE CLIPS</span></h1><small>Valorant · e-sports · formato vertical 9:16</small></header>
-<main>
-  <div class="chips" id="chips"></div>
-  <div class="zona" id="zona">
-    <b>Arrastra tus videos aquí</b>
-    <p>o toca para elegirlos · partidas, VODs, entrevistas, streams (mp4, mov, mkv, webm)</p>
-    <input type="file" id="archivo" accept="video/*" multiple hidden>
-  </div>
-  <div class="subida" id="subida"></div>
-
-  <details open>
-    <summary>Opciones</summary>
-    <div class="grid">
-      <label>Clips por video<input id="clips" type="number" min="1" max="30" value="8"></label>
-      <label>Duración mínima (s)<input id="dmin" type="number" min="5" max="120" value="15"></label>
-      <label>Duración máxima (s)<input id="dmax" type="number" min="10" max="180" value="45"></label>
-      <label>Qué buscar<select id="filtro">
-        <option value="todo">Todo (kills, risas, entrevistas, hype)</option>
-        <option value="kills">Solo jugadas y kills</option>
-        <option value="graciosos">Momentos graciosos / reacciones</option>
-        <option value="entrevistas">Entrevistas</option></select></label>
-      <label>Formato vertical<select id="formato">
-        <option value="auto">Automático</option>
-        <option value="juego">Juego centrado grande + fondo desenfocado</option>
-        <option value="completo">Pantalla completa 16:9 (se ve el killfeed)</option>
-        <option value="entrevista">Recorte que sigue la cara</option></select></label>
-      <label>Subtítulos<select id="subtitulos">
-        <option value="auto">Automático</option><option value="whisper">Whisper (en tu PC)</option>
-        <option value="gemini">Gemini</option><option value="no">Sin subtítulos</option></select></label>
-      <label>Usar Gemini (IA que mira el video)<select id="gemini">
-        <option value="auto">Si hay clave</option><option value="si">Sí</option><option value="no">No</option></select></label>
-      <label>Tu @ en el video<input id="marca" placeholder="@tu_canal"></label>
-      <label>Color de la palabra activa<input id="color" type="color" value="#FF4655"></label>
-      <label>Idioma de los títulos<select id="idioma"><option>español</option><option>inglés</option><option>portugués</option></select></label>
-      <label>Zona del killfeed (avanzado)<input id="killfeed" placeholder="0.70,0.06,0.995,0.34"></label>
-      <label class="ch"><input id="borrar_original" type="checkbox"> Borrar el video original al terminar</label>
+<div class="envoltura">
+  <header class="top">
+    <div class="marca">
+      <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true"><path d="M4 4h22l10 10v22H14L4 26z" fill="#FF4655"/><path d="M13 13l14 14M27 13L13 27" stroke="#0F1923" stroke-width="3.5"/></svg>
+      <div><h1>Recortador <em>de clips</em></h1><small>Valorant · e-sports · vertical 9:16</small></div>
     </div>
-    <label>Indicaciones para la IA (opcional)<textarea id="indicaciones" placeholder="Ej: prioriza las jugadas de Jett, busca cuando se ríen en la entrevista, nada de pausas técnicas"></textarea></label>
-    <p></p>
-  </details>
+    <div class="estado-chips" id="chips"></div>
+  </header>
 
-  <div id="trabajos"></div>
-</main>
+  <div class="rejilla">
+    <!-- ======= control ======= -->
+    <aside class="control">
+      <section>
+        <h2 class="titulo-seccion">Subir videos</h2>
+        <label class="zona" id="zona" for="archivo">
+          <div class="icono"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><path d="M12 17V4M6 10l6-6 6 6M4 20h16"/></svg></div>
+          <strong>Arrastra tus videos</strong>
+          <span>o toca para elegirlos · partidas, VODs, entrevistas, streams</span>
+          <input type="file" id="archivo" accept="video/*,.mkv,.ts,.flv" multiple>
+        </label>
+        <div class="cola-subida" id="cola"></div>
+      </section>
+
+      <section>
+        <h2 class="titulo-seccion">Qué buscar</h2>
+        <div class="modos" id="modos">
+          <button type="button" class="modo" data-v="todo" aria-pressed="true"><b>Todo</b><span>Kills, risas, entrevistas y gritos del caster</span></button>
+          <button type="button" class="modo" data-v="kills" aria-pressed="false"><b>Kills y ACE</b><span>Multikills, clutch y jugadas del killfeed</span></button>
+          <button type="button" class="modo" data-v="graciosos" aria-pressed="false"><b>Graciosos</b><span>Risas, bromas y reacciones</span></button>
+          <button type="button" class="modo" data-v="entrevistas" aria-pressed="false"><b>Entrevistas</b><span>Frases fuertes y momentos con cara a cámara</span></button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="fila">
+          <div class="lbl">Clips por video<small>los mejores primero</small></div>
+          <div class="paso-num"><button type="button" data-paso="-1" aria-label="Menos clips">−</button><input id="clips" type="number" min="1" max="30" value="8" aria-label="Clips por video"><button type="button" data-paso="1" aria-label="Más clips">+</button></div>
+        </div>
+        <div class="fila">
+          <div class="lbl">Duración<small>segundos por clip</small></div>
+          <div class="rango"><input id="dmin" type="number" min="5" max="120" value="15" aria-label="Duración mínima"> a <input id="dmax" type="number" min="10" max="180" value="45" aria-label="Duración máxima"> s</div>
+        </div>
+        <div class="fila" style="display:block">
+          <div class="lbl">Formato vertical</div>
+          <div class="segmentos" id="formatos">
+            <button type="button" data-v="auto" aria-pressed="true">Auto</button>
+            <button type="button" data-v="juego" aria-pressed="false">Juego</button>
+            <button type="button" data-v="completo" aria-pressed="false">Completo</button>
+            <button type="button" data-v="entrevista" aria-pressed="false">Cara</button>
+          </div>
+          <p class="formato-ayuda" id="formato-ayuda"></p>
+        </div>
+        <details class="mas" id="mas">
+          <summary>Más opciones</summary>
+          <div class="campos">
+            <label class="campo">Subtítulos<select id="subtitulos"><option value="auto">Automático</option><option value="whisper">Whisper (tu PC)</option><option value="gemini">Gemini</option><option value="no">Sin subtítulos</option></select></label>
+            <label class="campo">Gemini<select id="gemini"><option value="auto">Si hay clave</option><option value="si">Siempre</option><option value="no">No usar</option></select></label>
+            <label class="campo">Tu @ en el video<input id="marca" placeholder="@tu_canal" maxlength="40"></label>
+            <label class="campo">Palabra activa<input id="color" type="color" value="#FF4655"></label>
+            <label class="campo">Idioma de títulos<select id="idioma"><option>español</option><option>inglés</option><option>portugués</option></select></label>
+            <label class="campo">Zona del killfeed<input id="killfeed" placeholder="0.70,0.06,0.995,0.34"></label>
+            <label class="campo ancho">Indicaciones para la IA<textarea id="indicaciones" placeholder="Ej: prioriza las jugadas de Jett, busca cuando se ríen en la entrevista, nada de pausas técnicas"></textarea></label>
+            <label class="campo check ancho"><input id="borrar_original" type="checkbox"> Borrar el video original al terminar</label>
+          </div>
+        </details>
+      </section>
+    </aside>
+
+    <!-- ======= trabajos ======= -->
+    <main>
+      <div id="aviso"></div>
+      <h2 class="titulo-seccion">Tus videos <b id="contador"></b></h2>
+      <div id="trabajos"></div>
+    </main>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
 <script>
-const $ = s => document.querySelector(s);
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const mmss = t => { t = Math.max(0, t || 0); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = Math.floor(t % 60);
+  return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); };
+let DEMO = false;
+const estado = { filtro: {}, confirmar: null, marcado: null };
+
+/* ---------- opciones (se recuerdan en este navegador) ---------- */
+const CAMPOS = ['clips','dmin','dmax','subtitulos','gemini','marca','color','idioma','killfeed','indicaciones'];
+let filtroBusqueda = 'todo', formato = 'auto';
+const AYUDA = {
+  auto: 'Partidas: centro del juego grande. Entrevistas: sigue la cara. Lo decide por cada clip.',
+  juego: 'Centro del juego en grande con el killfeed en un recuadro y fondo desenfocado.',
+  completo: 'La pantalla 16:9 entera (HUD, minimapa y killfeed) sobre fondo desenfocado.',
+  entrevista: 'Recorte 9:16 que sigue la cara de quien habla y cambia en cada corte.'
+};
+function guardar(){ const o = { filtroBusqueda, formato }; CAMPOS.forEach(k => o[k] = $('#' + k).value); try { localStorage.setItem('recortador', JSON.stringify(o)); } catch (e) {} }
+function cargar(){
+  let o = {}; try { o = JSON.parse(localStorage.getItem('recortador') || '{}'); } catch (e) {}
+  CAMPOS.forEach(k => { if (o[k] != null) $('#' + k).value = o[k]; });
+  if (o.filtroBusqueda) filtroBusqueda = o.filtroBusqueda;
+  if (o.formato) formato = o.formato;
+  pintarGrupo('#modos', filtroBusqueda); pintarGrupo('#formatos', formato); $('#formato-ayuda').textContent = AYUDA[formato];
+}
+function pintarGrupo(sel, v){ $$(sel + ' [data-v]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v)); }
+$('#modos').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; filtroBusqueda = b.dataset.v; pintarGrupo('#modos', filtroBusqueda); guardar(); });
+$('#formatos').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (!b) return; formato = b.dataset.v; pintarGrupo('#formatos', formato); $('#formato-ayuda').textContent = AYUDA[formato]; guardar(); });
+$$('[data-paso]').forEach(b => b.addEventListener('click', () => { const i = $('#clips'); i.value = Math.min(30, Math.max(1, (+i.value || 8) + +b.dataset.paso)); guardar(); }));
+CAMPOS.forEach(k => $('#' + k).addEventListener('change', guardar));
+cargar();
+
+function toast(t){ const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => el.hidden = true, 2200); }
+
+/* ---------- subir ---------- */
 const zona = $('#zona'), input = $('#archivo');
-const OPC = ['clips','dmin','dmax','filtro','formato','subtitulos','gemini','marca','color','idioma','killfeed','indicaciones'];
-try { const g = JSON.parse(localStorage.getItem('opciones')||'{}'); OPC.forEach(k => { if (g[k] != null) $('#'+k).value = g[k]; }); } catch(e) {}
-function guardarOpciones(){ const o={}; OPC.forEach(k=>o[k]=$('#'+k).value); try{localStorage.setItem('opciones',JSON.stringify(o))}catch(e){} }
-
-fetch('/api/estado').then(r=>r.json()).then(e=>{
-  $('#chips').innerHTML =
-    `<span class="chip ${e.gemini?'ok':'no'}">Gemini ${e.gemini?'conectado':'sin clave (solo análisis local)'}</span>`+
-    `<span class="chip ${e.whisper?'ok':'no'}">Whisper ${e.whisper?'instalado':'no instalado'}</span>`;
-});
-
-zona.onclick = () => input.click();
-input.onchange = () => subirTodos([...input.files]);
 ['dragenter','dragover'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.add('encima'); }));
-['dragleave','drop'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.remove('encima'); }));
-zona.addEventListener('drop', e => subirTodos([...e.dataTransfer.files].filter(f => f.type.startsWith('video') || /\.(mkv|mov|mp4|webm|ts|flv)$/i.test(f.name))));
+['dragleave','drop'].forEach(ev => zona.addEventListener(ev, () => zona.classList.remove('encima')));
+zona.addEventListener('drop', e => { e.preventDefault(); subirTodos([...e.dataTransfer.files]); });
+input.addEventListener('change', () => { subirTodos([...input.files]); input.value = ''; });
+const esVideo = f => f.type.startsWith('video') || /\.(mp4|mov|mkv|webm|avi|m4v|flv|ts)$/i.test(f.name);
 
 async function subirTodos(files){
-  guardarOpciones();
+  files = files.filter(esVideo);
+  if (!files.length) { toast('Elige archivos de video'); return; }
+  if (DEMO) { toast('Esto es la vista previa: abre la app en tu PC para subir'); return; }
+  guardar();
   for (const f of files) await subir(f);
-  input.value = '';
 }
 function subir(f){
   return new Promise(res => {
+    const fila = document.createElement('div'); fila.className = 'subiendo';
+    fila.innerHTML = `<span class="nombre">${esc(f.name)}</span><span class="pct">0%</span><div class="barrita"><i></i></div>`;
+    $('#cola').appendChild(fila);
     const fd = new FormData(); fd.append('video', f);
-    OPC.forEach(k => fd.append(k, $('#'+k).value));
+    CAMPOS.forEach(k => fd.append(k, $('#' + k).value));
+    fd.append('filtro', filtroBusqueda); fd.append('formato', formato);
     fd.append('borrar_original', $('#borrar_original').checked ? '1' : '0');
     const x = new XMLHttpRequest(); x.open('POST', '/api/subir');
-    x.upload.onprogress = e => { if (e.lengthComputable) $('#subida').textContent = `Subiendo ${f.name}: ${Math.round(e.loaded/e.total*100)}%`; };
-    x.onload = () => { $('#subida').textContent = x.status==200 ? `${f.name} en cola ✔` : `Error: ${x.responseText}`; refrescar(); res(); };
-    x.onerror = () => { $('#subida').textContent = 'Error al subir ' + f.name; res(); };
+    x.upload.onprogress = e => { if (e.lengthComputable) { const p = Math.round(e.loaded / e.total * 100); $('.pct', fila).textContent = p + '%'; $('i', fila).style.width = p + '%'; } };
+    const fin = (ok, msj) => { $('.pct', fila).textContent = msj; if (ok) setTimeout(() => fila.remove(), 2500); refrescar(); res(); };
+    x.onload = () => { let m = ''; try { m = JSON.parse(x.responseText).error || ''; } catch (e) {} fin(x.status === 200, x.status === 200 ? 'En cola' : (m || 'No se pudo subir')); };
+    x.onerror = () => fin(false, 'Sin conexión con la app');
     x.send(fd);
   });
 }
 
-const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const mmss = t => `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
-const pintados = {};
+/* ---------- trabajos ---------- */
+const ETAPAS = [['Audio', 0, .08], ['Video', .08, .45], ['Gemini', .45, .6], ['Momentos', .6, .62], ['Clips', .62, 1]];
+const NOMBRES_TIPO = { kill:'Kill', multikill:'Multikill', ace:'ACE', clutch:'Clutch', jugada:'Jugada', gracioso:'Gracioso', entrevista:'Entrevista', reaccion:'Reacción', hype:'Hype' };
+const firmas = {};
+
+function etapasHTML(t){
+  const p = t.estado === 'listo' ? 1 : (t.progreso || 0);
+  return ETAPAS.map(([n, a, b]) => {
+    const f = Math.max(0, Math.min(1, (p - a) / (b - a)));
+    const cls = f >= 1 ? 'hecha' : f > 0 ? 'activa' : '';
+    return `<div class="etapa ${cls}"><div class="tira"><i style="width:${cls === 'hecha' ? 100 : f * 100}%"></i></div>${n}</div>`;
+  }).join('');
+}
+
+function graficaSVG(t){
+  const L = t.linea, D = t.duracion || 1, W = 1000, H = 110, base = H - 2;
+  if (!L || !L.hype || !L.hype.length) return '';
+  const max = Math.max(4, ...L.hype), x = s => (s / D) * W, y = v => base - Math.max(0, v) / max * (base - 10);
+  let d = `M0 ${base}`; L.hype.forEach((v, i) => { d += ` L${x(i * L.paso).toFixed(1)} ${y(v).toFixed(1)}`; }); d += ` L${W} ${base} Z`;
+  const bandas = (t.clips || []).map(c => `<g class="banda" data-r="${c.rango}" style="cursor:pointer"><rect x="${x(c.inicio).toFixed(1)}" y="0" width="${Math.max(3, x(c.fin) - x(c.inicio)).toFixed(1)}" height="${base}" fill="#FF4655" fill-opacity=".28"/><rect x="${x(c.inicio).toFixed(1)}" y="0" width="${Math.max(3, x(c.fin) - x(c.inicio)).toFixed(1)}" height="3" fill="#FF4655"/></g>`).join('');
+  const kills = (L.kills || []).map(k => `<line x1="${x(k).toFixed(1)}" x2="${x(k).toFixed(1)}" y1="${base - 26}" y2="${base}" stroke="#ECE8E1" stroke-width="2"/>`).join('');
+  const marcas = [0, .25, .5, .75, 1].map(f => `<span>${mmss(f * D)}</span>`).join('');
+  return `<div class="linea"><div class="linea-cab"><h3 class="titulo-seccion" style="margin:0">Línea de tiempo</h3>
+      <div class="leyenda"><span class="l-hype">Hype del audio</span><span class="l-kill">Kill</span><span class="l-clip">Clip elegido</span></div></div>
+    <div class="grafica"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Hype del audio, kills y clips a lo largo del video">
+      <line x1="0" x2="${W}" y1="${base}" y2="${base}" stroke="#26394A"/>
+      <path d="${d}" fill="#5AB7FF" fill-opacity=".22" stroke="#5AB7FF" stroke-opacity=".8" stroke-width="1.2" vector-effect="non-scaling-stroke"/>
+      ${kills}${bandas}</svg>${(t.clips || []).map(c => `<span class="num-banda" style="left:${(x(c.inicio) / W * 100).toFixed(2)}%">${c.rango}</span>`).join('')}</div>
+    <div class="marcas-t">${marcas}</div></div>`;
+}
+
+function clipHTML(t, c){
+  const src = c.archivo ? `/clips/${t.id}/${encodeURIComponent(c.archivo)}` : '';
+  const poster = c.portada ? `/clips/${t.id}/${encodeURIComponent(c.portada)}` : '';
+  const vista = DEMO
+    ? `<div class="portada-demo" style="background:${c.fondo}"><div class="t">${esc(c.titulo)}</div><div class="s">${c.sub || ''}</div></div>`
+    : `<img src="${poster}" alt="" loading="lazy"><video preload="none" playsinline controls hidden data-src="${src}"></video>`;
+  return `<article class="clip" id="clip-${t.id}-${c.rango}" data-tipo="${esc(c.tipo)}">
+    <div class="marco">${vista}
+      <span class="puesto">${c.rango}</span><span class="rango-clip">${mmss(c.inicio)}–${mmss(c.fin)} · ${Math.round(c.duracion || c.fin - c.inicio)}s</span>
+      <button class="jugar" type="button" data-jugar aria-label="Reproducir ${esc(c.titulo)}"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M7 4l13 8-13 8z"/></svg></span></button>
+    </div>
+    <div class="cuerpo">
+      <div class="tipo-linea"><span class="tipo ${esc(c.tipo)}">${esc(NOMBRES_TIPO[c.tipo] || c.tipo)}</span>
+        <span class="nota" title="Qué tan viral puede ser"><span class="medidor"><i style="width:${(c.puntuacion || 0) * 10}%"></i></span>${(+c.puntuacion || 0).toFixed(1)}</span></div>
+      <h3>${esc(c.titulo)}</h3>
+      ${c.motivo ? `<div class="motivo">${esc(String(c.motivo).split(' | ')[0])}</div>` : ''}
+      <div class="acciones">
+        ${DEMO ? `<button class="btn chico" type="button" data-demo>Descargar</button>` : `<a class="btn chico" href="${src}?descargar=1">Descargar</a>`}
+        <button class="btn sec chico" type="button" data-copiar="${esc(c.titulo)}">Copiar texto</button>
+      </div>
+    </div></article>`;
+}
+
+function trabajoHTML(t){
+  const clips = t.clips || [];
+  const cuenta = {}; clips.forEach(c => cuenta[c.tipo] = (cuenta[c.tipo] || 0) + 1);
+  const f = estado.filtro[t.id] || 'todos';
+  const pct = Math.round((t.estado === 'listo' ? 1 : t.progreso || 0) * 100);
+  const confirmando = estado.confirmar === t.id;
+  const estadoTxt = { 'listo':'Listo', 'procesando':'Procesando', 'en cola':'En cola', 'error':'Error', 'interrumpido':'Interrumpido' }[t.estado] || t.estado;
+  return `<div class="trabajo-cab"><div style="min-width:0"><h2>${esc(t.archivo)}<span class="pill ${String(t.estado).replace(' ', '-')}">${esc(estadoTxt)}</span></h2>
+        <div class="meta">${t.duracion ? 'Video de ' + mmss(t.duracion) + ' · ' : ''}${clips.length ? clips.length + ' clips' : ''}${t.segundos ? ' · hecho en ' + mmss(t.segundos) : ''}</div></div>
+      <div class="acciones">${confirmando
+        ? `<span class="confirmar">¿Borrar video y clips?</span><button class="btn chico" type="button" data-borrar-si="${t.id}">Borrar</button><button class="btn sec chico" type="button" data-borrar-no>Cancelar</button>`
+        : `${t.estado === 'listo' && clips.length ? (DEMO ? `<button class="btn" type="button" data-demo>Descargar todo .zip</button>` : `<a class="btn" href="/clips/${t.id}.zip">Descargar todo .zip</a>`) : ''}
+           ${t.estado !== 'procesando' ? `<button class="btn sec" type="button" data-borrar="${t.id}">Borrar</button>` : ''}`}</div></div>
+    <div class="etapas">${etapasHTML(t)}</div>
+    <div class="paso-texto">${t.estado === 'listo' ? '' : t.estado === 'error' ? 'Error: ' + esc(t.error || '') + ' · revisa el registro' : esc(t.paso || 'Esperando turno') + ` <b>${pct}%</b>`}</div>
+    ${t.estado === 'listo' ? graficaSVG(t) : ''}
+    ${clips.length > 1 ? `<div class="filtros" data-trabajo="${t.id}"><button type="button" class="filtro" data-f="todos" aria-pressed="${f === 'todos'}">Todos<b>${clips.length}</b></button>${Object.entries(cuenta).map(([k, n]) => `<button type="button" class="filtro" data-f="${esc(k)}" aria-pressed="${f === k}">${esc(NOMBRES_TIPO[k] || k)}<b>${n}</b></button>`).join('')}</div>` : ''}
+    ${clips.length ? `<div class="clips">${clips.filter(c => f === 'todos' || c.tipo === f).map(c => clipHTML(t, c)).join('')}</div>` : ''}
+    ${t.estado === 'listo' && !clips.length ? '<div class="paso-texto">No encontré momentos claros. Prueba con Gemini activado o con “Todo”.</div>' : ''}
+    <details class="registro"><summary>Registro</summary><pre>${esc((t.log || []).join('\n'))}</pre></details>`;
+}
+
 function pintar(lista){
   const cont = $('#trabajos');
-  const ids = new Set(lista.map(t=>t.id));
-  [...cont.children].forEach(n => { if (!ids.has(n.dataset.id)) n.remove(); });
+  $('#contador').textContent = lista.length ? lista.length : '';
+  if (!lista.length) { cont.innerHTML = `<div class="vacio"><b>Todavía no hay videos</b>Sube una partida, un VOD o una entrevista y aquí aparecen sus clips.</div>`; return; }
+  const ids = new Set(lista.map(t => t.id));
+  $$('.trabajo, .vacio', cont).forEach(n => { if (!ids.has(n.dataset.id)) n.remove(); });
   lista.forEach((t, i) => {
-    let el = cont.querySelector(`[data-id="${t.id}"]`);
-    if (!el) { el = document.createElement('div'); el.className = 'trabajo'; el.dataset.id = t.id; cont.appendChild(el); }
-    const firma = t.estado + '|' + (t.clips||[]).length;
-    const pct = Math.round((t.progreso||0)*100);
-    if (pintados[t.id] !== firma) {
-      pintados[t.id] = firma;
-      el.innerHTML = `<div class="cab"><h3>${esc(t.archivo)}</h3><div class="acciones">
-          ${t.estado=='listo' ? `<a class="btn" href="/clips/${t.id}.zip">Descargar todo (.zip)</a>` : ''}
-          ${t.estado!='procesando' ? `<button class="btn sec" onclick="borrar('${t.id}')">Borrar</button>` : ''}</div></div>
-        <div class="barra"><i style="width:${pct}%"></i></div>
-        <div class="paso"></div>
-        <div class="clips">${(t.clips||[]).map(c => `
-          <div class="clip"><video src="/clips/${t.id}/${encodeURIComponent(c.archivo)}" poster="/clips/${t.id}/${encodeURIComponent(c.portada)}" controls preload="none" playsinline></video>
-            <div class="info"><div class="tit">${esc(c.titulo)}</div>
-              <div class="meta"><span class="tipo">${esc(c.tipo)}</span>${c.puntuacion}/10 · ${c.duracion}s · desde ${mmss(c.inicio)}</div>
-              <div class="acciones"><a class="btn" href="/clips/${t.id}/${encodeURIComponent(c.archivo)}?descargar=1">Descargar</a></div>
-            </div></div>`).join('')}</div>
-        <details><summary>Registro</summary><pre class="log"></pre></details>`;
+    let el = cont.querySelector(`.trabajo[data-id="${t.id}"]`);
+    if (!el) { el = document.createElement('section'); el.className = 'trabajo'; el.dataset.id = t.id; }
+    if (cont.children[i] !== el) cont.insertBefore(el, cont.children[i] || null);
+    const firma = [t.estado, (t.clips || []).length, estado.filtro[t.id], estado.confirmar === t.id, t.estado === 'listo' ? '' : Math.round((t.progreso || 0) * 200), (t.log || []).length].join('|');
+    if (firmas[t.id] !== firma) {
+      const abierto = $('.registro', el)?.open;
+      el.innerHTML = trabajoHTML(t); firmas[t.id] = firma;
+      if (abierto) $('.registro', el).open = true;
     }
-    el.querySelector('.barra i').style.width = pct + '%';
-    el.querySelector('.paso').textContent = t.estado=='listo' ? `Listo · ${(t.clips||[]).length} clips en ${Math.round(t.segundos||0)} s`
-      : t.estado=='error' ? 'Error: ' + (t.error||'') : `${t.estado} · ${t.paso||''} ${pct}%`;
-    el.querySelector('.log').textContent = (t.log||[]).join('\n');
   });
 }
-async function refrescar(){ try { pintar(await (await fetch('/api/trabajos')).json()); } catch(e) {} }
-async function borrar(id){ if (confirm('¿Borrar este video y sus clips?')) { await fetch('/api/trabajo/'+id, {method:'DELETE'}); refrescar(); } }
-refrescar(); setInterval(refrescar, 2000);
+
+/* ---------- acciones ---------- */
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button, a'); if (!b) return;
+  if (b.matches('[data-jugar]')) {
+    const marco = b.closest('.marco'), v = $('video', marco);
+    if (DEMO || !v) { toast('Vista previa: los clips se reproducen en la app'); return; }
+    if (!v.src) v.src = v.dataset.src;
+    v.hidden = false; marco.classList.add('reproduciendo'); v.play().catch(() => {});
+  } else if (b.matches('[data-copiar]')) {
+    const txt = b.dataset.copiar + '\n\n#valorant #vct #esports #valorantclips #fyp';
+    try { await navigator.clipboard.writeText(txt); toast('Texto copiado'); } catch (err) { toast('No se pudo copiar'); }
+  } else if (b.matches('[data-demo]')) {
+    toast('Vista previa: descarga desde la app en tu PC');
+  } else if (b.matches('[data-borrar]')) {
+    estado.confirmar = b.dataset.borrar; refrescar();
+  } else if (b.matches('[data-borrar-no]')) {
+    estado.confirmar = null; refrescar();
+  } else if (b.matches('[data-borrar-si]')) {
+    const id = b.dataset.borrarSi; estado.confirmar = null;
+    if (DEMO) { demoTrabajos = demoTrabajos.filter(t => t.id !== id); toast('Borrado'); }
+    else { await fetch('/api/trabajo/' + id, { method: 'DELETE' }); toast('Borrado'); }
+    refrescar();
+  } else if (b.matches('.filtro')) {
+    const id = b.closest('.filtros').dataset.trabajo; estado.filtro[id] = b.dataset.f; refrescar();
+  }
+});
+document.addEventListener('click', e => {
+  const g = e.target.closest('.banda'); if (!g) return;
+  const t = g.closest('.trabajo'), el = $(`#clip-${t.dataset.id}-${g.dataset.r}`, t);
+  if (!el) { estado.filtro[t.dataset.id] = 'todos'; refrescar(); return; }
+  $$('.clip.marcado').forEach(c => c.classList.remove('marcado'));
+  el.classList.add('marcado'); el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+/* ---------- datos: la app real o, si no hay servidor, la vista previa ---------- */
+let demoTrabajos = [];
+async function refrescar(){
+  if (DEMO) { pintar(demoTrabajos); return; }
+  try { const r = await fetch('/api/trabajos'); if (!r.ok) throw 0; pintar(await r.json()); } catch (e) {}
+}
+function chips(g, w){
+  $('#chips').innerHTML = (DEMO ? '<span class="chip demo"><i></i>Vista previa</span>' : '') +
+    `<span class="chip ${g ? 'ok' : 'aviso'}"><i></i>Gemini ${g ? 'conectado' : 'sin clave'}</span>` +
+    `<span class="chip ${w ? 'ok' : 'aviso'}"><i></i>Whisper ${w ? 'listo' : 'no instalado'}</span>`;
+}
+async function iniciar(){
+  try {
+    const r = await fetch('/api/estado'); if (!r.ok) throw 0;
+    const e = await r.json(); chips(e.gemini, e.whisper);
+  } catch (err) {
+    DEMO = true; chips(true, true);
+    $('#aviso').innerHTML = '<div class="aviso-demo">Vista previa de la interfaz con <b>clips de ejemplo</b>. Para subir tus videos abre la app en tu PC con <code>iniciar.bat</code>.</div>';
+    demoTrabajos = demo();
+  }
+  refrescar(); setInterval(refrescar, DEMO ? 600 : 2000);
+}
+
+function demo(){
+  const D = 2754, paso = 4.6, n = Math.ceil(D / paso); let s = 7;
+  const azar = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const picos = [[520, 6], [1210, 4.5], [1388, 7.5], [1890, 5], [2405, 6.5]];
+  const hype = Array.from({ length: n }, (_, i) => { const t = i * paso; let v = azar() * 1.4 - .2;
+    picos.forEach(([c, a]) => v += a * Math.exp(-((t - c) ** 2) / 900)); return +v.toFixed(2); });
+  const fondo = (a, b) => `linear-gradient(160deg, ${a}, #0b131b 55%), radial-gradient(circle at 70% 60%, ${b}, transparent 60%)`;
+  const clips = [
+    { rango: 1, inicio: 1371, fin: 1404, tipo: 'ace', titulo: 'ACE CON SHERIFF EN EL ÚLTIMO SEGUNDO', puntuacion: 9.6, motivo: 'Cinco kills seguidas de Jett en B con el caster gritando', sub: 'NO PUEDE SER <em>ES UN ACE</em>', fondo: fondo('#3a1520', '#ff465544') },
+    { rango: 2, inicio: 505, fin: 531, tipo: 'clutch', titulo: 'CLUTCH 1V3 PARA GANAR EL MAPA', puntuacion: 8.8, motivo: 'Último jugador vivo gana la ronda 12 con la spike plantada', sub: 'SE QUEDÓ <em>SOLO</em>', fondo: fondo('#14283a', '#5ab7ff44') },
+    { rango: 3, inicio: 2392, fin: 2415, tipo: 'gracioso', titulo: 'SE RIÓ EN PLENA ENTREVISTA', puntuacion: 8.1, motivo: 'El jugador no puede parar de reír cuando le preguntan por el Operator', sub: 'NO SÉ QUÉ <em>PASÓ</em>', fondo: fondo('#3a2a10', '#f5b54a44') },
+    { rango: 4, inicio: 1878, fin: 1901, tipo: 'multikill', titulo: 'TRIPLE KILL CON OPERATOR', puntuacion: 7.4, motivo: 'Tres kills en el killfeed en seis segundos', sub: 'UNO DOS <em>TRES</em>', fondo: fondo('#2a1530', '#b47cff44') },
+    { rango: 5, inicio: 1196, fin: 1222, tipo: 'hype', titulo: 'EL PÚBLICO EXPLOTÓ', puntuacion: 6.9, motivo: 'Pico de audio del público y el caster', sub: 'QUÉ <em>LOCURA</em>', fondo: fondo('#0f2a24', '#35d6a644') },
+    { rango: 6, inicio: 2610, fin: 2633, tipo: 'entrevista', titulo: 'VAMOS POR EL TÍTULO', puntuacion: 6.2, motivo: 'Frase fuerte del capitán después de ganar', sub: 'ESTE AÑO <em>ES NUESTRO</em>', fondo: fondo('#142030', '#5ab7ff33') }
+  ].map(c => ({ ...c, duracion: c.fin - c.inicio }));
+  return [
+    { id: 'demo-2', archivo: 'semifinal_mapa2_entrevista.mp4', estado: 'procesando', progreso: .31, paso: 'Mirando el video (kills, cortes, caras)...', creado: 2, log: ['Video: semifinal_mapa2_entrevista.mp4 · 38.4 min · 1920x1080 · 60 fps'], _demo: true },
+    { id: 'demo-1', archivo: 'VCT_final_mapa3_ejemplo.mp4', estado: 'listo', progreso: 1, duracion: D, segundos: 412, creado: 1, clips,
+      linea: { paso, hype, kills: [180, 512, 515, 519, 690, 1374, 1377, 1381, 1386, 1392, 1883, 1887, 1890, 2205] },
+      log: ['Video: VCT_final_mapa3_ejemplo.mp4 · 45.9 min · 1920x1080 · 60 fps', 'Kills detectadas en el killfeed: 14', 'Gemini propuso 12 momentos', '6 clips listos'] }
+  ];
+}
+setInterval(() => { if (!DEMO) return; const t = demoTrabajos.find(x => x._demo); if (!t) return;
+  t.progreso = t.progreso >= .99 ? .02 : t.progreso + .01;
+  t.paso = t.progreso < .08 ? 'Escuchando el audio (gritos, público, risas)...' : t.progreso < .45 ? 'Mirando el video (kills, cortes, caras)...' : t.progreso < .6 ? 'Gemini está mirando el video...' : t.progreso < .62 ? 'Eligiendo los mejores momentos...' : 'Renderizando clip ' + (1 + Math.floor((t.progreso - .62) / .38 * 6)) + ' de 6...'; }, 600);
+iniciar();
 </script>
 </body>
 </html>

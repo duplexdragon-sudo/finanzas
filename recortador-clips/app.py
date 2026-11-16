@@ -54,6 +54,15 @@ def _cargar_estados():
                 pass
 
 
+def _linea(lt, maximo=600):
+    """hype reducido a <= 600 puntos y tiempos de las kills, para la gráfica de la interfaz"""
+    paso, hype, kills = lt['paso'], lt['hype'] or [], lt['kills'] or []
+    k = max(1, -(-len(hype) // maximo))
+    puntos = [round(max(v for v in hype[i:i + k] if v is not None), 2) if any(v is not None for v in hype[i:i + k]) else 0
+              for i in range(0, len(hype), k)]
+    return dict(paso=paso * k, hype=puntos, kills=[round(i * paso, 1) for i, v in enumerate(kills) if v])
+
+
 def trabajador():
     while True:
         id_ = cola.get()
@@ -71,7 +80,8 @@ def trabajador():
         _guardar(id_, estado='procesando', inicio=time.time())
         try:
             r = pipeline.procesar(os.path.join(carpeta, e['archivo']), os.path.join(carpeta, 'clips'), e['opciones'], log, progreso)
-            _guardar(id_, estado='listo', clips=r['clips'], progreso=1.0, segundos=r['segundos'])
+            _guardar(id_, estado='listo', clips=r['clips'], progreso=1.0, segundos=r['segundos'], duracion=r['duracion'],
+                     linea=_linea(r['linea_tiempo']))
         except Exception as ex:
             log('ERROR: ' + str(ex))
             log(traceback.format_exc()[-1500:])
