@@ -1,0 +1,7 @@
+# Recortador de clips (Python 3.10+). Además necesitas ffmpeg instalado.
+numpy>=1.24
+opencv-python-headless>=4.8
+flask>=3.0
+requests>=2.31
+# Subtítulos locales y gratis (opcional pero recomendado). Baja el modelo de Whisper la primera vez (~480 MB "small").
+faster-whisper>=1.0

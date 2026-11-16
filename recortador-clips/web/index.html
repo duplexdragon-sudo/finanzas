@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Recortador de Clips</title>
+<style>
+@font-face{font-family:Anton;src:url(/fuentes/Anton-Regular.ttf)}
+@font-face{font-family:Bebas;src:url(/fuentes/BebasNeue-Regular.ttf)}
+:root{--fondo:#0F1923;--panel:#16232f;--borde:#24384a;--rojo:#FF4655;--texto:#ECE8E1;--suave:#8b9bab;--verde:#3fd6a5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--texto);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{padding:22px 16px 8px;max-width:1100px;margin:auto;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+h1{font-family:Anton,Impact,sans-serif;font-weight:400;letter-spacing:.5px;margin:0;font-size:34px}
+h1 span{color:var(--rojo)}
+header small{color:var(--suave)}
+main{max-width:1100px;margin:auto;padding:8px 16px 60px}
+.zona{border:2px dashed var(--borde);border-radius:14px;padding:34px 16px;text-align:center;cursor:pointer;background:var(--panel);transition:.15s}
+.zona.encima,.zona:hover{border-color:var(--rojo);background:#1b2a38}
+.zona b{font-family:Bebas,sans-serif;font-size:28px;letter-spacing:1px;display:block}
+.zona p{margin:6px 0 0;color:var(--suave)}
+details{background:var(--panel);border:1px solid var(--borde);border-radius:12px;margin:14px 0;padding:4px 14px}
+summary{cursor:pointer;padding:10px 0;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;padding-bottom:12px}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--suave)}
+input,select,textarea{background:#0c141c;border:1px solid var(--borde);color:var(--texto);border-radius:8px;padding:8px;font:inherit}
+textarea{min-height:60px;resize:vertical}
+label.ch{flex-direction:row;align-items:center;gap:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.chip{font-size:12px;padding:3px 10px;border-radius:99px;background:#0c141c;border:1px solid var(--borde);color:var(--suave)}
+.chip.ok{color:var(--verde);border-color:#1f5e4b}
+.chip.no{color:#f0a35b;border-color:#6b4a26}
+.trabajo{background:var(--panel);border:1px solid var(--borde);border-radius:14px;padding:14px;margin:14px 0}
+.cab{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.cab h3{margin:0;font-size:16px;word-break:break-all}
+.barra{height:8px;background:#0c141c;border-radius:9px;overflow:hidden;margin:10px 0 4px}
+.barra i{display:block;height:100%;background:var(--rojo);width:0;transition:width .4s}
+.paso{font-size:13px;color:var(--suave)}
+.clips{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:12px}
+.clip{background:#0c141c;border-radius:12px;overflow:hidden;border:1px solid var(--borde)}
+.clip video{width:100%;aspect-ratio:9/16;display:block;background:#000}
+.clip .info{padding:8px 10px}
+.clip .tit{font-family:Bebas,sans-serif;font-size:21px;letter-spacing:.5px;line-height:1.1}
+.clip .meta{font-size:12px;color:var(--suave);margin:4px 0 8px}
+.tipo{display:inline-block;font-size:11px;text-transform:uppercase;font-weight:700;padding:1px 7px;border-radius:4px;background:var(--rojo);color:#fff;margin-right:6px}
+.btn{display:inline-block;background:var(--rojo);color:#fff;border:0;border-radius:8px;padding:8px 12px;font-weight:700;text-decoration:none;cursor:pointer;font-size:13px}
+.btn.sec{background:transparent;border:1px solid var(--borde);color:var(--texto)}
+.acciones{display:flex;gap:8px;flex-wrap:wrap}
+pre{white-space:pre-wrap;font-size:11.5px;color:var(--suave);max-height:180px;overflow:auto;background:#0c141c;padding:8px;border-radius:8px}
+.subida{font-size:13px;color:var(--suave);margin-top:8px}
+</style>
+</head>
+<body>
+<header><h1>RECORTADOR <span>DE CLIPS</span></h1><small>Valorant · e-sports · formato vertical 9:16</small></header>
+<main>
+  <div class="chips" id="chips"></div>
+  <div class="zona" id="zona">
+    <b>Arrastra tus videos aquí</b>
+    <p>o toca para elegirlos · partidas, VODs, entrevistas, streams (mp4, mov, mkv, webm)</p>
+    <input type="file" id="archivo" accept="video/*" multiple hidden>
+  </div>
+  <div class="subida" id="subida"></div>
+
+  <details open>
+    <summary>Opciones</summary>
+    <div class="grid">
+      <label>Clips por video<input id="clips" type="number" min="1" max="30" value="8"></label>
+      <label>Duración mínima (s)<input id="dmin" type="number" min="5" max="120" value="15"></label>
+      <label>Duración máxima (s)<input id="dmax" type="number" min="10" max="180" value="45"></label>
+      <label>Qué buscar<select id="filtro">
+        <option value="todo">Todo (kills, risas, entrevistas, hype)</option>
+        <option value="kills">Solo jugadas y kills</option>
+        <option value="graciosos">Momentos graciosos / reacciones</option>
+        <option value="entrevistas">Entrevistas</option></select></label>
+      <label>Formato vertical<select id="formato">
+        <option value="auto">Automático</option>
+        <option value="juego">Juego centrado grande + fondo desenfocado</option>
+        <option value="completo">Pantalla completa 16:9 (se ve el killfeed)</option>
+        <option value="entrevista">Recorte que sigue la cara</option></select></label>
+      <label>Subtítulos<select id="subtitulos">
+        <option value="auto">Automático</option><option value="whisper">Whisper (en tu PC)</option>
+        <option value="gemini">Gemini</option><option value="no">Sin subtítulos</option></select></label>
+      <label>Usar Gemini (IA que mira el video)<select id="gemini">
+        <option value="auto">Si hay clave</option><option value="si">Sí</option><option value="no">No</option></select></label>
+      <label>Tu @ en el video<input id="marca" placeholder="@tu_canal"></label>
+      <label>Color de la palabra activa<input id="color" type="color" value="#FF4655"></label>
+      <label>Idioma de los títulos<select id="idioma"><option>español</option><option>inglés</option><option>portugués</option></select></label>
+      <label>Zona del killfeed (avanzado)<input id="killfeed" placeholder="0.70,0.06,0.995,0.34"></label>
+      <label class="ch"><input id="borrar_original" type="checkbox"> Borrar el video original al terminar</label>
+    </div>
+    <label>Indicaciones para la IA (opcional)<textarea id="indicaciones" placeholder="Ej: prioriza las jugadas de Jett, busca cuando se ríen en la entrevista, nada de pausas técnicas"></textarea></label>
+    <p></p>
+  </details>
+
+  <div id="trabajos"></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const zona = $('#zona'), input = $('#archivo');
+const OPC = ['clips','dmin','dmax','filtro','formato','subtitulos','gemini','marca','color','idioma','killfeed','indicaciones'];
+try { const g = JSON.parse(localStorage.getItem('opciones')||'{}'); OPC.forEach(k => { if (g[k] != null) $('#'+k).value = g[k]; }); } catch(e) {}
+function guardarOpciones(){ const o={}; OPC.forEach(k=>o[k]=$('#'+k).value); try{localStorage.setItem('opciones',JSON.stringify(o))}catch(e){} }
+
+fetch('/api/estado').then(r=>r.json()).then(e=>{
+  $('#chips').innerHTML =
+    `<span class="chip ${e.gemini?'ok':'no'}">Gemini ${e.gemini?'conectado':'sin clave (solo análisis local)'}</span>`+
+    `<span class="chip ${e.whisper?'ok':'no'}">Whisper ${e.whisper?'instalado':'no instalado'}</span>`;
+});
+
+zona.onclick = () => input.click();
+input.onchange = () => subirTodos([...input.files]);
+['dragenter','dragover'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.add('encima'); }));
+['dragleave','drop'].forEach(ev => zona.addEventListener(ev, e => { e.preventDefault(); zona.classList.remove('encima'); }));
+zona.addEventListener('drop', e => subirTodos([...e.dataTransfer.files].filter(f => f.type.startsWith('video') || /\.(mkv|mov|mp4|webm|ts|flv)$/i.test(f.name))));
+
+async function subirTodos(files){
+  guardarOpciones();
+  for (const f of files) await subir(f);
+  input.value = '';
+}
+function subir(f){
+  return new Promise(res => {
+    const fd = new FormData(); fd.append('video', f);
+    OPC.forEach(k => fd.append(k, $('#'+k).value));
+    fd.append('borrar_original', $('#borrar_original').checked ? '1' : '0');
+    const x = new XMLHttpRequest(); x.open('POST', '/api/subir');
+    x.upload.onprogress = e => { if (e.lengthComputable) $('#subida').textContent = `Subiendo ${f.name}: ${Math.round(e.loaded/e.total*100)}%`; };
+    x.onload = () => { $('#subida').textContent = x.status==200 ? `${f.name} en cola ✔` : `Error: ${x.responseText}`; refrescar(); res(); };
+    x.onerror = () => { $('#subida').textContent = 'Error al subir ' + f.name; res(); };
+    x.send(fd);
+  });
+}
+
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mmss = t => `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}`;
+const pintados = {};
+function pintar(lista){
+  const cont = $('#trabajos');
+  const ids = new Set(lista.map(t=>t.id));
+  [...cont.children].forEach(n => { if (!ids.has(n.dataset.id)) n.remove(); });
+  lista.forEach((t, i) => {
+    let el = cont.querySelector(`[data-id="${t.id}"]`);
+    if (!el) { el = document.createElement('div'); el.className = 'trabajo'; el.dataset.id = t.id; cont.appendChild(el); }
+    const firma = t.estado + '|' + (t.clips||[]).length;
+    const pct = Math.round((t.progreso||0)*100);
+    if (pintados[t.id] !== firma) {
+      pintados[t.id] = firma;
+      el.innerHTML = `<div class="cab"><h3>${esc(t.archivo)}</h3><div class="acciones">
+          ${t.estado=='listo' ? `<a class="btn" href="/clips/${t.id}.zip">Descargar todo (.zip)</a>` : ''}
+          ${t.estado!='procesando' ? `<button class="btn sec" onclick="borrar('${t.id}')">Borrar</button>` : ''}</div></div>
+        <div class="barra"><i style="width:${pct}%"></i></div>
+        <div class="paso"></div>
+        <div class="clips">${(t.clips||[]).map(c => `
+          <div class="clip"><video src="/clips/${t.id}/${encodeURIComponent(c.archivo)}" poster="/clips/${t.id}/${encodeURIComponent(c.portada)}" controls preload="none" playsinline></video>
+            <div class="info"><div class="tit">${esc(c.titulo)}</div>
+              <div class="meta"><span class="tipo">${esc(c.tipo)}</span>${c.puntuacion}/10 · ${c.duracion}s · desde ${mmss(c.inicio)}</div>
+              <div class="acciones"><a class="btn" href="/clips/${t.id}/${encodeURIComponent(c.archivo)}?descargar=1">Descargar</a></div>
+            </div></div>`).join('')}</div>
+        <details><summary>Registro</summary><pre class="log"></pre></details>`;
+    }
+    el.querySelector('.barra i').style.width = pct + '%';
+    el.querySelector('.paso').textContent = t.estado=='listo' ? `Listo · ${(t.clips||[]).length} clips en ${Math.round(t.segundos||0)} s`
+      : t.estado=='error' ? 'Error: ' + (t.error||'') : `${t.estado} · ${t.paso||''} ${pct}%`;
+    el.querySelector('.log').textContent = (t.log||[]).join('\n');
+  });
+}
+async function refrescar(){ try { pintar(await (await fetch('/api/trabajos')).json()); } catch(e) {} }
+async function borrar(id){ if (confirm('¿Borrar este video y sus clips?')) { await fetch('/api/trabajo/'+id, {method:'DELETE'}); refrescar(); } }
+refrescar(); setInterval(refrescar, 2000);
+</script>
+</body>
+</html>
