@@ -1,0 +1,6 @@
+trabajos/
+clips/
+__pycache__/
+*.pyc
+.venv/
+clave_gemini.txt
