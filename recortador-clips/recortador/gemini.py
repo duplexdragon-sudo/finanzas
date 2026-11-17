@@ -99,7 +99,7 @@ def subir(ruta, mime='video/mp4'):
                                            'X-Goog-Upload-Command': 'upload, finalize'}), data=f, timeout=1800)
     r.raise_for_status()
     archivo = r.json()['file']
-    for _ in range(360):                                   # el video tarda en procesarse en Google
+    for _ in range(120):                                   # el video tarda en procesarse en Google (máx. 10 min)
         if archivo.get('state') == 'ACTIVE':
             return archivo
         if archivo.get('state') == 'FAILED':
@@ -125,25 +125,31 @@ def _generar(partes, esquema, temperatura=0.4, resolucion_baja=False, espera=300
     orden = _bueno[:1] + [m for m in MODELOS if m not in _bueno[:1]]
     for ronda in range(2):
         for m in orden:
-            try:
-                r = requests.post(f'{API}/v1beta/models/{m}:generateContent', headers=_h({'Content-Type': 'application/json'}),
-                                  json=cuerpo, timeout=espera)
-            except requests.RequestException as e:
-                ult = e
-                continue
-            if r.status_code == 200:
+            for intento in range(3):
                 try:
-                    d = r.json()
-                    txt = ''.join(p.get('text', '') for p in d['candidates'][0]['content']['parts'] if not p.get('thought'))
-                    res = json.loads(txt)
-                    _bueno[:] = [m]
-                    return res
-                except Exception as e:
+                    r = requests.post(f'{API}/v1beta/models/{m}:generateContent',
+                                      headers=_h({'Content-Type': 'application/json'}), json=cuerpo, timeout=espera)
+                except requests.RequestException as e:   # se colgó o sin internet: siguiente modelo
                     ult = e
+                    break
+                if r.status_code == 429:                   # límite por minuto del plan gratis: esperar y repetir
+                    ult = RuntimeError(f'Gemini {m}: límite de uso por minuto del plan gratis (429)')
+                    time.sleep(30 * (intento + 1))
                     continue
-            ult = RuntimeError(f'Gemini {m} {r.status_code}: {r.text[:200]}')
-            if r.status_code in (400, 401, 403):
-                raise ult
+                if r.status_code == 200:
+                    try:
+                        d = r.json()
+                        txt = ''.join(p.get('text', '') for p in d['candidates'][0]['content']['parts'] if not p.get('thought'))
+                        res = json.loads(txt)
+                        _bueno[:] = [m]
+                        return res
+                    except Exception as e:
+                        ult = e
+                        break
+                ult = RuntimeError(f'Gemini {m} {r.status_code}: {r.text[:200]}')
+                if r.status_code in (400, 401, 403):
+                    raise ult
+                break                                       # 404/500/503: siguiente modelo
         time.sleep(10 * (ronda + 1))
     raise ult
 

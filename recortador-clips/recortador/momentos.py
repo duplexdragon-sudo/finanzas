@@ -37,13 +37,14 @@ def candidatos_kills(v, a):
     return out
 
 
-def candidatos_hype(v, a, umbral=2.3, separacion=20):
+def candidatos_hype(v, a, umbral=2.3, separacion=20, minimo=0):
+    """picos de audio fuertes; si hay pocos (el caster grita todo el partido), los más altos que haya hasta juntar 'minimo'"""
     h = a['hype']
     out = []
     orden = np.argsort(-h)
     picos = []
     for i in orden:
-        if h[i] < umbral:
+        if h[i] < umbral and (len(picos) >= minimo or h[i] < 0.3):
             break
         t = i * PASO
         if all(abs(t - p) > separacion for p in picos):
@@ -98,7 +99,7 @@ FILTROS = {
 
 def elegir(v, a, dur, n=8, dmin=15, dmax=45, gem=None, filtro='todo'):
     ts = cortes(v) if len(v.get('corte', [])) else []
-    cands = candidatos_kills(v, a) + candidatos_hype(v, a)
+    cands = candidatos_kills(v, a) + candidatos_hype(v, a, minimo=n * 2)
     final = []
     for g in gem or []:                                    # Gemini manda; si coincide con una señal, más puntos
         g = dict(g)

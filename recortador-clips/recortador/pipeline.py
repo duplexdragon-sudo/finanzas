@@ -36,6 +36,11 @@ def _nombre(texto):
     return re.sub(r'[\s_-]+', '_', s)[:40] or 'clip'
 
 
+def analisis_mmss(t):
+    t = int(t)
+    return f'{t // 3600}:{t % 3600 // 60:02d}:{t % 60:02d}' if t >= 3600 else f'{t // 60}:{t % 60:02d}'
+
+
 def _a_lista(x):
     if isinstance(x, np.ndarray):
         return [None if (isinstance(v, float) and np.isnan(v)) else round(float(v), 4) for v in x]
@@ -95,15 +100,27 @@ def procesar(video, carpeta, opciones=None, log=print, progreso=lambda f, txt=''
                 ms = gemini.momentos(prox, n=n_tramo, dmin=op['dmin'], dmax=op['dmax'], idioma=op['idioma'],
                                      extra=op['indicaciones'], log=lambda m: None)
                 return [dict(m, inicio=m['inicio'] + t0, fin=min(m['fin'], t1 - t0) + t0) for m in ms if m['inicio'] < t1 - t0]
-            errores = []
-            with cf.ThreadPoolExecutor(min(4, len(tramos))) as ex:
-                for fut in [ex.submit(mirar, t) for t in tramos]:
+            errores, listos = [], 0
+            limite = time.time() + max(600, 120 * len(tramos))  # no esperar a Gemini para siempre
+            ex = cf.ThreadPoolExecutor(min(2, len(tramos)))       # de 2 en 2: el plan gratis tiene límite por minuto
+            futuros = {ex.submit(mirar, t): t for t in tramos}
+            try:
+                for fut in cf.as_completed(futuros, timeout=max(1, limite - time.time())):
+                    t0, t1, _ = futuros[fut]
+                    listos += 1
                     try:
-                        gem += fut.result()
+                        ms = fut.result()
+                        gem += ms
+                        log(f'Gemini tramo {analisis_mmss(t0)}–{analisis_mmss(t1)}: {len(ms)} momentos ({listos}/{len(tramos)})')
                     except Exception as e:
                         errores.append(str(e))
-            if errores:
-                log(f'Gemini falló en {len(errores)} de {len(tramos)} tramos: {errores[0][:200]}')
+                        log(f'Gemini tramo {analisis_mmss(t0)}–{analisis_mmss(t1)} falló: {str(e)[:160]}')
+                    progreso(0.53 + 0.07 * listos / len(tramos), f'Gemini está mirando el video ({listos} de {len(tramos)} partes)...')
+            except cf.TimeoutError:
+                errores.append('tiempo agotado')
+                log(f'Gemini tardó demasiado: sigo con {listos} de {len(tramos)} partes y el análisis de audio/video')
+            finally:
+                ex.shutdown(wait=False, cancel_futures=True)
             log(f'Gemini propuso {len(gem)} momentos en {time.time() - t_gem:.0f} s')
             if gem and not errores:
                 with open(gcache, 'w', encoding='utf-8') as f:
@@ -111,8 +128,11 @@ def procesar(video, carpeta, opciones=None, log=print, progreso=lambda f, txt=''
     else:
         log('Sin Gemini: uso solo el análisis de audio y video')
     for t in tramos:
-        if t[2] and os.path.exists(t[2]):
-            os.remove(t[2])
+        try:
+            if t[2] and os.path.exists(t[2]):
+                os.remove(t[2])
+        except OSError:                                      # Windows: todavía se está subiendo
+            pass
 
     # 3) elegir
     progreso(0.6, 'Eligiendo los mejores momentos...')
