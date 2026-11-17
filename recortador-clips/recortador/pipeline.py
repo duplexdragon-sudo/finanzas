@@ -171,6 +171,25 @@ def procesar(video, carpeta, opciones=None, log=print, progreso=lambda f, txt=''
             list(ex.map(subtitular, trabajos))
         log(f'Subtítulos listos en {time.time() - t_sub:.0f} s')
 
+    # 4b) segunda pasada con Gemini (solo texto): título gancho, descripción y hashtags para cada clip
+    if usar_gem and trabajos:
+        progreso(0.71, 'Gemini escribe títulos y descripciones...')
+        try:
+            for c, tr in zip([t[1] for t in trabajos], trabajos):
+                c['transcripcion'] = ' '.join(p['texto'] for p in tr[3])
+            textos = gemini.textos_redes([t[1] for t in trabajos], op['idioma'], op['marca'])
+            for k, _, _, _ in trabajos:
+                r = textos.get(k)
+                if r:
+                    c = trabajos[k][1]
+                    if r.get('titulo', '').strip():
+                        c['titulo'] = r['titulo'].strip().upper()[:60]
+                    c['descripcion'] = r.get('descripcion', '').strip()
+                    c['hashtags'] = [h if h.startswith('#') else '#' + h for h in (r.get('hashtags') or []) if h.strip()]
+            log(f'Gemini escribió títulos y descripciones para {len(textos)} clips')
+        except Exception as e:
+            log(f'No se pudieron mejorar los títulos ({str(e)[:160]}); quedan los de antes')
+
     hechos = [0]
     progreso(0.72, f'Creando {len(trabajos)} clips verticales...')
 

@@ -375,6 +375,11 @@ function graficaSVG(t){
     <div class="marcas-t">${marcas}</div></div>`;
 }
 
+function textoRedes(c){
+  const tags = (c.hashtags && c.hashtags.length) ? c.hashtags.join(' ') : '#valorant #vct #esports #valorantclips #fyp';
+  return [c.titulo, c.descripcion, tags].filter(Boolean).join('\n\n');
+}
+
 function clipHTML(t, c){
   const src = c.archivo ? `/clips/${t.id}/${encodeURIComponent(c.archivo)}` : '';
   const poster = c.portada ? `/clips/${t.id}/${encodeURIComponent(c.portada)}` : '';
@@ -390,10 +395,11 @@ function clipHTML(t, c){
       <div class="tipo-linea"><span class="tipo ${esc(c.tipo)}">${esc(NOMBRES_TIPO[c.tipo] || c.tipo)}</span>
         <span class="nota" title="Qué tan viral puede ser"><span class="medidor"><i style="width:${(c.puntuacion || 0) * 10}%"></i></span>${(+c.puntuacion || 0).toFixed(1)}</span></div>
       <h3>${esc(c.titulo)}</h3>
-      ${c.motivo ? `<div class="motivo">${esc(String(c.motivo).split(' | ')[0])}</div>` : ''}
+      ${c.descripcion ? `<div class="motivo">${esc(c.descripcion)}</div>` : c.motivo ? `<div class="motivo">${esc(String(c.motivo).split(' | ')[0])}</div>` : ''}
+      ${(c.hashtags || []).length ? `<div class="motivo" style="color:var(--azul)">${esc(c.hashtags.join(' '))}</div>` : ''}
       <div class="acciones">
         ${DEMO ? `<button class="btn chico" type="button" data-demo>Descargar</button>` : `<a class="btn chico" href="${src}?descargar=1">Descargar</a>`}
-        <button class="btn sec chico" type="button" data-copiar="${esc(c.titulo)}">Copiar texto</button>
+        <button class="btn sec chico" type="button" data-copiar="${esc(textoRedes(c))}">Copiar texto</button>
       </div>
     </div></article>`;
 }
@@ -449,7 +455,7 @@ document.addEventListener('click', async e => {
     if (!v.src) v.src = v.dataset.src;
     v.hidden = false; marco.classList.add('reproduciendo'); v.play().catch(() => {});
   } else if (b.matches('[data-copiar]')) {
-    const txt = b.dataset.copiar + '\n\n#valorant #vct #esports #valorantclips #fyp';
+    const txt = b.dataset.copiar;
     try { await navigator.clipboard.writeText(txt); toast('Texto copiado'); } catch (err) { toast('No se pudo copiar'); }
   } else if (b.matches('[data-demo]')) {
     toast('Vista previa: descarga desde la app en tu PC');

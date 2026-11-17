@@ -227,3 +227,25 @@ def transcribir(wav):
               'Marca risas como "[risas]". Si solo hay música o ruido devuelve una lista vacía.')
     res = _generar([{'inline_data': {'mime_type': 'audio/wav', 'data': datos}}, {'text': prompt}], ESQUEMA_PALABRAS, 0.1, espera=60)
     return [dict(texto=p['texto'].strip(), inicio=float(p['inicio']), fin=float(p['fin'])) for p in res or [] if p.get('texto', '').strip()]
+
+
+ESQUEMA_REDES = {'type': 'ARRAY', 'items': {'type': 'OBJECT', 'properties': {
+    'indice': {'type': 'INTEGER'}, 'titulo': {'type': 'STRING'}, 'descripcion': {'type': 'STRING'},
+    'hashtags': {'type': 'ARRAY', 'items': {'type': 'STRING'}}},
+    'required': ['indice', 'titulo', 'descripcion', 'hashtags']}}
+
+
+def textos_redes(clips, idioma='español', marca=''):
+    """segunda pasada: con lo que se dice en cada clip, Gemini escribe título gancho, descripción y hashtags (solo texto: gratis y rápido)"""
+    lista = '\n'.join(
+        f"[{i}] tipo={c.get('tipo')} · título actual={c.get('titulo', '')!r} · por qué={str(c.get('motivo', ''))[:160]!r} · "
+        f"se dice={(c.get('transcripcion') or '(sin voz)')[:600]!r}" for i, c in enumerate(clips))
+    prompt = (f'Eres community manager de clips de e-sports de VALORANT en TikTok, Reels y Shorts. Para cada clip escribe en {idioma}:\n'
+              '- titulo: gancho de 2 a 6 palabras en MAYÚSCULAS que va encima del video, sin emojis, que dé ganas de verlo '
+              '(usa nombres de jugadores, equipos o agentes si se dicen; no inventes nombres)\n'
+              '- descripcion: 1 o 2 frases cortas para el post, con 1 o 2 emojis como máximo, que inviten a comentar\n'
+              '- hashtags: 5 a 8 hashtags relevantes sin espacios (siempre #valorant), con el # incluido\n'
+              + (f'La cuenta es {marca}.\n' if marca else '') +
+              'No repitas el mismo título en dos clips. Devuelve uno por cada índice.\n\nClips:\n' + lista)
+    res = _generar([{'text': prompt}], ESQUEMA_REDES, 0.8, espera=90)
+    return {int(r['indice']): r for r in res or [] if 'indice' in r}
