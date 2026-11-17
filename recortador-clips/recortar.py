@@ -24,7 +24,7 @@ def main():
     ap.add_argument('--subtitulos', choices=['auto', 'whisper', 'gemini', 'no'], default='auto')
     ap.add_argument('--sin-gemini', action='store_true')
     ap.add_argument('--marca', default='', help='tu @ abajo del video')
-    ap.add_argument('--color', default='#FF4655')
+    ap.add_argument('--color', default='#B026FF')
     ap.add_argument('--indicaciones', default='', help='texto libre para Gemini')
     ap.add_argument('--killfeed', default=None, help='zona del killfeed x0,y0,x1,y1 en 0-1')
     a = ap.parse_args()

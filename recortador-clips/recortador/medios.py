@@ -1,5 +1,6 @@
 """MEDIOS — leer información, audio y cuadros de un video con ffmpeg (sin cargar todo en memoria)."""
 import json
+import os
 import shutil
 import subprocess
 
@@ -12,7 +13,7 @@ FFPROBE = shutil.which('ffprobe') or 'ffprobe'
 def info(ruta):
     """duración, ancho, alto, fps y si tiene audio"""
     o = subprocess.run([FFPROBE, '-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', ruta],
-                       capture_output=True, text=True, check=True)
+                       capture_output=True, text=True, encoding='utf-8', errors='replace', check=True)
     d = json.loads(o.stdout)
     v = next((s for s in d['streams'] if s.get('codec_type') == 'video'), None)
     if v is None:
@@ -70,3 +71,23 @@ def proxy_ligero(ruta, salida, alto=360, fps=None):
     subprocess.run([FFMPEG, '-v', 'error', '-y', '-i', ruta, '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast',
                     '-crf', '30', '-c:a', 'aac', '-b:a', '64k', '-ac', '1', salida], check=True)
     return salida
+
+
+def proxies_paralelo(ruta, carpeta, max_tramo=2700, hilos=4):
+    """copias ligeras (360p, 1 cuadro/s) por tramos de máx. 45 min, en paralelo, para Gemini"""
+    import concurrent.futures as cf
+    import math
+    inf = info(ruta)
+    dur = inf['duracion']
+    partes = max(1, math.ceil(dur / max_tramo))
+    largo = dur / partes
+    tramos = [(i * largo, min(dur, (i + 1) * largo), os.path.join(carpeta, f'_tramo{i:02d}.mp4')) for i in range(partes)]
+
+    def uno(t):
+        t0, t1, sal = t
+        subprocess.run([FFMPEG, '-v', 'error', '-y', '-threads', '2', '-skip_frame', 'noref', '-ss', f'{t0:.3f}', '-t', f'{t1 - t0:.3f}',
+                        '-i', ruta, '-vf', 'fps=1,scale=-2:360', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '32']
+                       + (['-c:a', 'aac', '-b:a', '48k', '-ac', '1'] if inf['audio'] else ['-an']) + [sal], check=True)
+    with cf.ThreadPoolExecutor(min(hilos, partes)) as ex:
+        list(ex.map(uno, tramos))
+    return tramos

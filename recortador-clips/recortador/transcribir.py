@@ -34,6 +34,10 @@ def _whisper(wav, idioma=None):
     return out
 
 
+def usa_whisper(motor):
+    return motor in ('auto', 'whisper') and whisper_disponible() and not _whisper_roto
+
+
 def palabras(wav, motor='auto', idioma=None, log=print):
     """motor: auto | whisper | gemini | no"""
     if motor == 'no':

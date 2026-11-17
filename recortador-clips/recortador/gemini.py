@@ -16,7 +16,7 @@ import requests
 API = 'https://generativelanguage.googleapis.com'
 # si un modelo está saturado (503) o ya no existe (404) se prueba el siguiente
 MODELOS = [m for m in [os.environ.get('RECORTADOR_GEMINI_MODELO')] if m] + [
-    'gemini-3-flash-preview', 'gemini-flash-latest', 'gemini-3.5-flash', 'gemini-2.5-flash']
+    'gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash']
 _bueno = []
 
 
@@ -71,7 +71,7 @@ def borrar(archivo):
         pass
 
 
-def _generar(partes, esquema, temperatura=0.4, resolucion_baja=False, espera=900):
+def _generar(partes, esquema, temperatura=0.4, resolucion_baja=False, espera=300):
     cfg = {'responseMimeType': 'application/json', 'responseSchema': esquema, 'temperature': temperatura}
     if resolucion_baja:
         cfg['mediaResolution'] = 'MEDIA_RESOLUTION_LOW'
@@ -174,5 +174,5 @@ def transcribir(wav):
     prompt = ('Transcribe exactamente lo que se dice en este audio, en el idioma original (español, inglés, portugués...). '
               'Devuelve cada PALABRA con su tiempo de inicio y fin en segundos (con décimas) desde el inicio del audio. '
               'Marca risas como "[risas]". Si solo hay música o ruido devuelve una lista vacía.')
-    res = _generar([{'inline_data': {'mime_type': 'audio/wav', 'data': datos}}, {'text': prompt}], ESQUEMA_PALABRAS, 0.1, espera=180)
+    res = _generar([{'inline_data': {'mime_type': 'audio/wav', 'data': datos}}, {'text': prompt}], ESQUEMA_PALABRAS, 0.1, espera=60)
     return [dict(texto=p['texto'].strip(), inicio=float(p['inicio']), fin=float(p['fin'])) for p in res or [] if p.get('texto', '').strip()]

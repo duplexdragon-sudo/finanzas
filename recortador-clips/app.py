@@ -129,7 +129,7 @@ def _opciones(fo):
         clips=max(1, min(30, _num(fo.get('clips'), int, 8))),
         dmin=max(5, _num(fo.get('dmin'), float, 15)), dmax=min(180, _num(fo.get('dmax'), float, 45)),
         formato=fo.get('formato', 'auto'), filtro=fo.get('filtro', 'todo'), gemini=fo.get('gemini', 'auto'),
-        subtitulos=fo.get('subtitulos', 'auto'), marca=fo.get('marca', '')[:40], color=fo.get('color', '#FF4655'),
+        subtitulos=fo.get('subtitulos', 'auto'), marca=fo.get('marca', '')[:40], color=fo.get('color', '#B026FF'),
         indicaciones=fo.get('indicaciones', '')[:500], idioma=fo.get('idioma', 'español'),
         killfeed=fo.get('killfeed') or None, borrar_original=fo.get('borrar_original') == '1')
     if op['dmax'] < op['dmin']:

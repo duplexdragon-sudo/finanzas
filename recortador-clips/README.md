@@ -8,7 +8,7 @@ como clips **verticales 9:16 (1080x1920)** listos para TikTok, Reels y YouTube S
 - **Entrevistas y momentos graciosos**: detecta caras grandes (cámara de entrevista o de jugador) y risas en la transcripción.
 - **Gemini (opcional, recomendado)**: la IA mira el video completo, entiende qué pasa (clutch, ACE, broma en la entrevista…),
   elige los momentos y les pone un título gancho. Si coincide con el killfeed o el audio, el clip sube de puntuación.
-- **Subtítulos palabra por palabra** (estilo TikTok, palabra activa en rojo Valorant) con Whisper en tu PC o con Gemini.
+- **Subtítulos palabra por palabra** (estilo TikTok, palabra activa en morado) con Whisper en tu PC o con Gemini.
 - **Formato vertical automático**: partidas = centro del juego grande + fondo desenfocado + recuadro del killfeed;
   entrevistas = recorte que sigue la cara. Audio a −14 LUFS. Portada `.jpg` por clip.
 

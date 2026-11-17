@@ -8,6 +8,7 @@ Formatos:
 Audio normalizado a -14 LUFS (lo que piden TikTok/YouTube).
 """
 import os
+import shutil
 import subprocess
 
 import numpy as np
@@ -20,9 +21,9 @@ FUENTES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 
 def _color_ass(hexrgb):
-    h = (hexrgb or '#FF4655').lstrip('#')
+    h = (hexrgb or '#B026FF').lstrip('#')
     if len(h) != 6:
-        h = 'FF4655'
+        h = 'B026FF'
     return f'&H{h[4:6]}{h[2:4]}{h[0:2]}'.upper()
 
 
@@ -47,7 +48,7 @@ def grupos_de_palabras(pals, maximo=3, pausa=0.6):
     return gs
 
 
-def escribir_ass(ruta, dur, titulo='', pals=(), marca='', color='#FF4655', y_sub=420, y_titulo=150):
+def escribir_ass(ruta, dur, titulo='', pals=(), marca='', color='#B026FF', y_sub=420, y_titulo=150):
     est = ('Style: Titulo,Anton,104,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,0,0,0,0,100,100,1,0,1,7,2,8,60,60,{yt},1\n'
            'Style: Sub,Anton,108,&H00FFFFFF,&H00FFFFFF,&H00000000,&H78000000,0,0,0,0,100,100,1,0,1,8,3,2,70,70,{ys},1\n'
            'Style: Marca,Bebas Neue,54,&H40FFFFFF,&H40FFFFFF,&H78000000,&H00000000,0,0,0,0,100,100,3,0,1,3,0,2,40,40,70,1\n'
@@ -108,7 +109,7 @@ def seguir_cara(v, t0, t1, ancho_src, alto_src, ts_cortes):
     return expr, cw
 
 
-def render(src, t0, t1, salida, formato='juego', titulo='', pals=(), marca='', v=None, ts_cortes=(), color='#FF4655',
+def render(src, t0, t1, salida, formato='juego', titulo='', pals=(), marca='', v=None, ts_cortes=(), color='#B026FF',
            fps_max=60, calidad=20, killfeed=None):
     inf = medios.info(src)
     dur = t1 - t0
@@ -128,8 +129,8 @@ def render(src, t0, t1, salida, formato='juego', titulo='', pals=(), marca='', v
             y_sub, y_tit = 330, 110
         n = 3 if killfeed else 2
         vid = (f'[0:v]split={n}[b][f]' + ('[k]' if killfeed else '') + ';'
-               f'[b]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},'
-               f'gblur=sigma=28,eq=brightness=-0.12:saturation=1.1[bg];{fg};'
+               f'[b]scale={W // 5}:{H // 5}:force_original_aspect_ratio=increase,crop={W // 5}:{H // 5},'
+               f'boxblur=8:2,eq=brightness=-0.12:saturation=1.1,scale={W}:{H}[bg];{fg};'
                f'[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1' + ('[v1]' if killfeed else '[v0]'))
         if killfeed:                                        # el killfeed en un recuadro arriba a la derecha
             x0, y0, x1, y1 = killfeed
@@ -137,7 +138,12 @@ def render(src, t0, t1, salida, formato='juego', titulo='', pals=(), marca='', v
             vid += (f';[k]crop={kw}:{kh}:{int(x0 * sw)}:{int(y0 * sh)},scale=400:-2:flags=lanczos[kf]'
                     f';[v1][kf]overlay=W-w-24:{(H - 1350) // 2 + 24}[v0]')
     ass = escribir_ass(base + '.ass', dur, titulo, pals, marca, color, y_sub, y_tit)
-    vid += f";[v0]ass='{_ruta_filtro(ass)}':fontsdir='{_ruta_filtro(FUENTES)}',fps={fps},format=yuv420p[v]"
+    # en Windows las rutas con "C:\\" rompen el filtro ass: ffmpeg corre dentro de la carpeta del clip y usa nombres relativos
+    carpeta = os.path.dirname(os.path.abspath(salida))
+    fuentes_locales = os.path.join(carpeta, '_fuentes')
+    if not os.path.isdir(fuentes_locales):
+        shutil.copytree(FUENTES, fuentes_locales)
+    vid += f";[v0]ass='{os.path.basename(ass)}':fontsdir='_fuentes',fps={fps},format=yuv420p[v]"
     filtro = vid
     mapa = ['-map', '[v]']
     if inf['audio']:
@@ -146,10 +152,14 @@ def render(src, t0, t1, salida, formato='juego', titulo='', pals=(), marca='', v
     script = base + '.filtro.txt'
     with open(script, 'w', encoding='utf-8') as f:
         f.write(filtro)
-    cmd = [medios.FFMPEG, '-v', 'error', '-y', '-ss', f'{t0:.3f}', '-t', f'{dur:.3f}', '-i', src,
-           '-filter_complex_script', script, *mapa, '-c:v', 'libx264', '-preset', 'fast', '-crf', str(calidad),
-           '-profile:v', 'high', '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', salida]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    def correr(enc):
+        cmd = [medios.FFMPEG, '-v', 'error', '-y', '-ss', f'{t0:.3f}', '-t', f'{dur:.3f}', '-i', src,
+               '-filter_complex_script', script, *mapa, *enc, '-movflags', '+faststart',
+               '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', salida]
+        return subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='replace', cwd=carpeta)
+    r = correr(codificador(calidad))
+    if r.returncode != 0 and codificador(calidad)[1] != 'libx264':   # si la tarjeta de video falla, con el procesador
+        r = correr(_ARGS['cpu'](calidad))
     if r.returncode != 0:
         raise RuntimeError('ffmpeg falló: ' + r.stderr[-800:])
     for p in (script, ass):
@@ -158,6 +168,44 @@ def render(src, t0, t1, salida, formato='juego', titulo='', pals=(), marca='', v
         except OSError:
             pass
     return salida
+
+
+_ARGS = {
+    'nvidia': lambda q: ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', str(q + 1), '-b:v', '0', '-pix_fmt', 'yuv420p'],
+    'amd': lambda q: ['-c:v', 'h264_amf', '-quality', 'quality', '-rc', 'cqp', '-qp_i', str(q), '-qp_p', str(q + 2),
+                      '-qp_b', str(q + 4), '-pix_fmt', 'yuv420p'],
+    'intel': lambda q: ['-c:v', 'h264_qsv', '-global_quality', str(q + 1), '-pix_fmt', 'nv12'],
+    'cpu': lambda q: ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', str(q + 1), '-profile:v', 'high', '-pix_fmt', 'yuv420p'],
+}
+_elegido = []
+
+
+def tarjeta():
+    """qué codificador usar: la tarjeta de video (NVIDIA, AMD o Intel) si ffmpeg puede, si no el procesador.
+    Se puede forzar con la variable RECORTADOR_CODIFICADOR=cpu|nvidia|amd|intel"""
+    if not _elegido:
+        forzado = os.environ.get('RECORTADOR_CODIFICADOR', '').lower()
+        opciones = [forzado] if forzado in _ARGS else ['nvidia', 'amd', 'intel']
+        for nombre in opciones:
+            if nombre == 'cpu':
+                break
+            r = subprocess.run([medios.FFMPEG, '-v', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=1080x1920:d=0.3:r=30',
+                                *_ARGS[nombre](20), '-f', 'null', '-'], capture_output=True)
+            if r.returncode == 0:
+                _elegido.append(nombre)
+                break
+        if not _elegido:
+            _elegido.append('cpu')
+    return _elegido[0]
+
+
+def codificador(calidad=20):
+    return _ARGS[tarjeta()](calidad)
+
+
+def clips_a_la_vez():
+    """con tarjeta de video 3 clips en paralelo; con procesador según los núcleos"""
+    return 3 if tarjeta() != 'cpu' else max(1, min(3, (os.cpu_count() or 4) // 4))
 
 
 def portada(clip, t, salida):

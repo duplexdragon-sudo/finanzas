@@ -251,7 +251,7 @@ details.mas[open] summary::before{content:"– "}
             <label class="campo">Subtítulos<select id="subtitulos"><option value="auto">Automático</option><option value="whisper">Whisper (tu PC)</option><option value="gemini">Gemini</option><option value="no">Sin subtítulos</option></select></label>
             <label class="campo">Gemini<select id="gemini"><option value="auto">Si hay clave</option><option value="si">Siempre</option><option value="no">No usar</option></select></label>
             <label class="campo">Tu @ en el video<input id="marca" placeholder="@tu_canal" maxlength="40"></label>
-            <label class="campo">Palabra activa<input id="color" type="color" value="#FF4655"></label>
+            <label class="campo">Palabra activa<input id="color" type="color" value="#B026FF"></label>
             <label class="campo">Idioma de títulos<select id="idioma"><option>español</option><option>inglés</option><option>portugués</option></select></label>
             <label class="campo">Zona del killfeed<input id="killfeed" placeholder="0.70,0.06,0.995,0.34"></label>
             <label class="campo ancho">Indicaciones para la IA<textarea id="indicaciones" placeholder="Ej: prioriza las jugadas de Jett, busca cuando se ríen en la entrevista, nada de pausas técnicas"></textarea></label>
@@ -292,6 +292,7 @@ const AYUDA = {
 function guardar(){ const o = { filtroBusqueda, formato }; CAMPOS.forEach(k => o[k] = $('#' + k).value); try { localStorage.setItem('recortador', JSON.stringify(o)); } catch (e) {} }
 function cargar(){
   let o = {}; try { o = JSON.parse(localStorage.getItem('recortador') || '{}'); } catch (e) {}
+  if (String(o.color || '').toUpperCase() === '#FF4655') delete o.color;   // el rojo de antes pasa al morado nuevo
   CAMPOS.forEach(k => { if (o[k] != null) $('#' + k).value = o[k]; });
   if (o.filtroBusqueda) filtroBusqueda = o.filtroBusqueda;
   if (o.formato) formato = o.formato;
