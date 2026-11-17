@@ -1,0 +1,102 @@
+PROMPTS PARA GEMINI — ESTILO BUSTO MORADO (copiar y pegar)
+Cómo usarlos: copia un prompt completo, pégalo en Gemini y guarda la imagen con el nombre que aparece arriba de cada uno (ej. 18_corona.png). Súbemelas como archivo.
+======================================================================
+
+1. 17_rey_ajedrez.png
+Hyperrealistic studio photograph of a polished marble chess king piece, three-quarter view slightly from below, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+2. 17_caballo_ajedrez.png
+Hyperrealistic studio photograph of a marble chess knight piece, side three-quarter view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+3. 17_reina_ajedrez.png
+Hyperrealistic studio photograph of a marble chess queen piece, three-quarter view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+4. 18_corona.png
+Hyperrealistic studio photograph of an ornate royal crown with engraved details and gems, three-quarter view from slightly above, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+5. 19_reloj_arena.png
+Hyperrealistic studio photograph of an antique hourglass with sand falling, front view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+6. 20_ojo.png
+Hyperrealistic studio photograph of a hyperrealistic human eyeball with detailed iris, front view, slightly turned, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+7. 21_cerebro.png
+Hyperrealistic studio photograph of a realistic human brain sculpture, side three-quarter view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+8. 22_dados.png
+Hyperrealistic studio photograph of two marble dice mid-air, tilted, showing different faces, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+9. 23_rompecabezas.png
+Hyperrealistic studio photograph of a single glossy 3D puzzle piece, isometric view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+10. 24_diamante.png
+Hyperrealistic studio photograph of a large brilliant-cut diamond, three-quarter view from above, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+11. 25_columna.png
+Hyperrealistic studio photograph of a classical Corinthian marble column, full height, front view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+12. 25_busto.png
+Hyperrealistic studio photograph of a classical marble bust of a bearded philosopher, three-quarter view facing right, cropped at the chest, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+13. 26_mouse.png
+Hyperrealistic studio photograph of a sleek gaming mouse, three-quarter top view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+14. 26_teclado.png
+Hyperrealistic studio photograph of a mechanical gaming keyboard, angled three-quarter view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+15. 27_audifonos.png
+Hyperrealistic studio photograph of over-ear gaming headphones with microphone, three-quarter view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+16. 28_monitor.png
+Hyperrealistic studio photograph of a gaming monitor on a stand, screen off, three-quarter view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+17. 29_medalla.png
+Hyperrealistic studio photograph of a winner medal with ribbon, front view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+18. 30_rayo.png
+Hyperrealistic studio photograph of a stylized lightning bolt sculpture made of glossy marble, front view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+19. 31_cadena_rota.png
+Hyperrealistic studio photograph of a heavy metal chain breaking apart in the middle, links flying, side view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+20. 32_brujula.png
+Hyperrealistic studio photograph of an antique brass compass, open, top three-quarter view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+21. 33_mariposa.png
+Hyperrealistic studio photograph of a single butterfly with wings open, top view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+22. 34_mano_estatua.png
+Hyperrealistic studio photograph of a marble statue hand reaching forward, open palm, three-quarter view, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+23. 35_alas.png
+Hyperrealistic studio photograph of a pair of marble angel wings, front view, symmetrical, centered with generous margin, the whole object visible. Monochrome purple duotone color grading: deep violet shadows (#342043), rich violet midtones (#8953AB to #AA53FA), soft lilac-white highlights (#F1EAFB). No other colors. Pure light grey background (#EDEDF0), completely plain, with the bottom of the object softly fading into the background. Soft studio lighting from the upper left, crisp micro-details, high contrast in the textures, subtle film grain, editorial poster aesthetic, 8K, ultra sharp. Vertical 4:5 format. No text, no letters, no logos, no watermark, no frame, no extra objects.
+----------------------------------------------------------------------
+
+EXTRA — Pasar una foto tuya a este estilo (sube la foto a Gemini y pega esto):
+Recolor this image into a monochrome purple duotone: deep violet shadows (#342043), violet midtones (#8953AB to #AA53FA), lilac-white highlights (#F1EAFB). Keep every detail and the exact shape. Replace the background with plain light grey (#EDEDF0) and softly fade the bottom of the object into it. No text, no watermark.
+----------------------------------------------------------------------
+
+Si sale con fondo con textura u objetos extra, agrega al final del prompt: isolated object only, empty plain background
+Objetos de Valorant (agentes, armas, Spike, rangos): NO los generes, yo los bajo de la API oficial y les aplico este estilo.
