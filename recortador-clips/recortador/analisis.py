@@ -55,10 +55,15 @@ def analizar_audio(ruta, sr=16000):
     rms = np.sqrt((v ** 2).mean(1) + 1e-10)
     db = 20 * np.log10(rms + 1e-7)
     # brillo: proporción de energía arriba de 1.5 kHz (gritos, público, "OHHH" del caster)
-    esp = np.abs(np.fft.rfft(v * np.hanning(n), axis=1)) ** 2
     f = np.fft.rfftfreq(n, 1 / sr)
-    alto = esp[:, (f > 1500) & (f < 6000)].sum(1)
-    total = esp[:, (f > 80) & (f < 6000)].sum(1) + 1e-9
+    m_alto, m_total = (f > 1500) & (f < 6000), (f > 80) & (f < 6000)
+    ventana = np.hanning(n).astype(np.float32)
+    alto, total = np.zeros(k), np.zeros(k)
+    for i in range(0, k, 600):                              # por bloques de 5 min: videos de horas sin llenar la RAM
+        esp = np.abs(np.fft.rfft(v[i:i + 600] * ventana, axis=1)) ** 2
+        alto[i:i + 600] = esp[:, m_alto].sum(1)
+        total[i:i + 600] = esp[:, m_total].sum(1)
+    total += 1e-9
     brillo = alto / total
     silencio = db < -50
     z_vol = zscore_local(db)
