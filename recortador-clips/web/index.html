@@ -486,15 +486,16 @@ async function refrescar(){
   if (DEMO) { pintar(demoTrabajos); return; }
   try { const r = await fetch('/api/trabajos'); if (!r.ok) throw 0; pintar(await r.json()); } catch (e) {}
 }
-function chips(g, w){
+function chips(g, w, ge){
+  const txt = g ? 'conectado' : ({ invalida: 'clave no válida', sin_internet: 'sin internet' }[ge] || 'sin clave');
   $('#chips').innerHTML = (DEMO ? '<span class="chip demo"><i></i>Vista previa</span>' : '') +
-    `<span class="chip ${g ? 'ok' : 'aviso'}"><i></i>Gemini ${g ? 'conectado' : 'sin clave'}</span>` +
+    `<span class="chip ${g ? 'ok' : 'aviso'}" title="${ge === 'invalida' ? 'Google rechazó la clave: crea otra en aistudio.google.com/apikey' : ''}"><i></i>Gemini ${txt}</span>` +
     `<span class="chip ${w ? 'ok' : 'aviso'}"><i></i>Whisper ${w ? 'listo' : 'no instalado'}</span>`;
 }
 async function iniciar(){
   try {
     const r = await fetch('/api/estado'); if (!r.ok) throw 0;
-    const e = await r.json(); chips(e.gemini, e.whisper);
+    const e = await r.json(); chips(e.gemini, e.whisper, e.gemini_estado);
   } catch (err) {
     DEMO = true; chips(true, true);
     $('#aviso').innerHTML = '<div class="aviso-demo">Vista previa de la interfaz con <b>clips de ejemplo</b>. Para subir tus videos abre la app en tu PC con <code>iniciar.bat</code>.</div>';

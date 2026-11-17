@@ -24,19 +24,42 @@ def _clave():
     return os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY') or ''
 
 
-def disponible():
-    """hay clave, o un proxy que la pone (como en el contenedor de Claude)"""
-    if _clave():
-        return True
+_estado = {}
+
+
+def estado():
+    """'ok' | 'sin_clave' | 'invalida' | 'sin_internet' — prueba la clave de verdad (se recuerda 5 min)"""
+    if _estado.get('t', 0) > time.time() - 300:
+        return _estado['v']
+    clave = _clave()
+    v = 'sin_internet'
     try:
-        r = requests.get(f'{API}/v1beta/models', headers={'x-goog-api-key': 'x'}, timeout=15)
-        return r.status_code == 200
+        # clave normal (AIza...) en x-goog-api-key; si no sirve y parece un token, como Authorization: Bearer
+        for modo in ['x-goog-api-key'] + (['bearer'] if clave else []):
+            h = {'x-goog-api-key': clave or 'x'} if modo == 'x-goog-api-key' else {'Authorization': f'Bearer {clave}'}
+            r = requests.get(f'{API}/v1beta/models', headers=h, timeout=15)
+            if r.status_code == 200:
+                _estado['modo'] = modo
+                v = 'ok'
+                break
+            v = 'invalida' if clave else 'sin_clave'
     except Exception:
-        return False
+        v = 'sin_internet'
+    _estado.update(v=v, t=time.time())
+    return v
+
+
+def disponible():
+    """hay una clave que funciona (o un proxy que la pone, como en el contenedor de Claude)"""
+    return estado() == 'ok'
 
 
 def _h(extra=None):
-    h = {'x-goog-api-key': _clave() or 'x'}
+    clave = _clave()
+    if clave and _estado.get('modo') == 'bearer':
+        h = {'Authorization': f'Bearer {clave}'}
+    else:
+        h = {'x-goog-api-key': clave or 'x'}
     h.update(extra or {})
     return h
 

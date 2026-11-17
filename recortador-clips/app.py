@@ -114,7 +114,7 @@ def fuentes(archivo):
 
 @app.route('/api/estado')
 def api_estado():
-    return jsonify(gemini=gemini.disponible(), whisper=transcribir.whisper_disponible(), opciones=pipeline.OPCIONES)
+    return jsonify(gemini=gemini.disponible(), gemini_estado=gemini.estado(), whisper=transcribir.whisper_disponible(), opciones=pipeline.OPCIONES)
 
 
 def _num(v, tipo, defecto):
