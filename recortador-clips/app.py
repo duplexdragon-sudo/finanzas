@@ -112,6 +112,13 @@ def fuentes(archivo):
     return send_from_directory(os.path.join(RAIZ, 'fuentes'), archivo)
 
 
+@app.route('/api/clave', methods=['POST'])
+def api_clave():
+    """guarda la clave de Gemini pegada en la app (solo en esta PC, en clave_gemini.txt)"""
+    e = gemini.guardar_clave(request.form.get('clave', ''))
+    return jsonify(gemini=e == 'ok', gemini_estado=e)
+
+
 @app.route('/api/estado')
 def api_estado():
     return jsonify(gemini=gemini.disponible(), gemini_estado=gemini.estado(), whisper=transcribir.whisper_disponible(), opciones=pipeline.OPCIONES)

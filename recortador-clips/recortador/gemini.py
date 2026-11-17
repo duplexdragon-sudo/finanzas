@@ -20,8 +20,30 @@ MODELOS = [m for m in [os.environ.get('RECORTADOR_GEMINI_MODELO')] if m] + [
 _bueno = []
 
 
+ARCHIVO_CLAVE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'clave_gemini.txt')
+
+
 def _clave():
+    """la clave pegada en la app (clave_gemini.txt) o la variable GEMINI_API_KEY"""
+    try:
+        with open(ARCHIVO_CLAVE, encoding='utf-8') as f:
+            c = f.read().strip()
+        if c:
+            return c
+    except OSError:
+        pass
     return os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY') or ''
+
+
+def guardar_clave(clave):
+    clave = (clave or '').strip().strip('"').strip("'")
+    if clave:
+        with open(ARCHIVO_CLAVE, 'w', encoding='utf-8') as f:
+            f.write(clave)
+    elif os.path.exists(ARCHIVO_CLAVE):
+        os.remove(ARCHIVO_CLAVE)
+    _estado.clear()
+    return estado()
 
 
 _estado = {}

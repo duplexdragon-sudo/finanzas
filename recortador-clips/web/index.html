@@ -249,6 +249,10 @@ details.mas[open] summary::before{content:"– "}
           <summary>Más opciones</summary>
           <div class="campos">
             <label class="campo">Subtítulos<select id="subtitulos"><option value="auto">Automático</option><option value="whisper">Whisper (tu PC)</option><option value="gemini">Gemini</option><option value="no">Sin subtítulos</option></select></label>
+            <div class="campo ancho" id="caja-clave"><span>Clave de Gemini <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--rojo)">(sacar una gratis)</a></span>
+              <div style="display:flex;gap:8px"><input id="clave" type="password" placeholder="Pega aquí tu clave" autocomplete="off" style="flex:1">
+              <button class="btn chico" type="button" id="guardar-clave">Guardar</button></div>
+              <small id="clave-msj" style="color:var(--gris)">Se guarda solo en tu PC.</small></div>
             <label class="campo">Gemini<select id="gemini"><option value="auto">Si hay clave</option><option value="si">Siempre</option><option value="no">No usar</option></select></label>
             <label class="campo">Tu @ en el video<input id="marca" placeholder="@tu_canal" maxlength="40"></label>
             <label class="campo">Palabra activa<input id="color" type="color" value="#B026FF"></label>
@@ -480,6 +484,20 @@ document.addEventListener('click', e => {
   el.classList.add('marcado'); el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 
+/* ---------- clave de Gemini ---------- */
+$('#guardar-clave').addEventListener('click', async () => {
+  if (DEMO) { toast('Vista previa: la clave se pega en la app de tu PC'); return; }
+  const fd = new FormData(); fd.append('clave', $('#clave').value);
+  $('#clave-msj').textContent = 'Probando la clave con Google...';
+  try {
+    const e = await (await fetch('/api/clave', { method: 'POST', body: fd })).json();
+    $('#clave').value = '';
+    $('#clave-msj').textContent = e.gemini ? 'Funciona. Gemini conectado.' : e.gemini_estado === 'invalida' ? 'Google rechazó esa clave. Crea otra y pégala.' : e.gemini_estado === 'sin_internet' ? 'Sin internet: no pude probarla.' : 'Clave borrada.';
+    estadoApp.gemini = e.gemini; estadoApp.gemini_estado = e.gemini_estado; chips(e.gemini, estadoApp.whisper, e.gemini_estado);
+  } catch (err) { $('#clave-msj').textContent = 'No pude hablar con la app. ¿Está abierta la ventana negra?'; }
+});
+const estadoApp = {};
+
 /* ---------- datos: la app real o, si no hay servidor, la vista previa ---------- */
 let demoTrabajos = [];
 async function refrescar(){
@@ -488,6 +506,7 @@ async function refrescar(){
 }
 function chips(g, w, ge){
   const txt = g ? 'conectado' : ({ invalida: 'clave no válida', sin_internet: 'sin internet' }[ge] || 'sin clave');
+  setTimeout(() => { const c = $('#chips .chip:not(.demo)'); if (c && !g) { c.style.cursor = 'pointer'; c.onclick = () => { $('#mas').open = true; $('#clave').focus(); }; } });
   $('#chips').innerHTML = (DEMO ? '<span class="chip demo"><i></i>Vista previa</span>' : '') +
     `<span class="chip ${g ? 'ok' : 'aviso'}" title="${ge === 'invalida' ? 'Google rechazó la clave: crea otra en aistudio.google.com/apikey' : ''}"><i></i>Gemini ${txt}</span>` +
     `<span class="chip ${w ? 'ok' : 'aviso'}"><i></i>Whisper ${w ? 'listo' : 'no instalado'}</span>`;
@@ -495,7 +514,8 @@ function chips(g, w, ge){
 async function iniciar(){
   try {
     const r = await fetch('/api/estado'); if (!r.ok) throw 0;
-    const e = await r.json(); chips(e.gemini, e.whisper, e.gemini_estado);
+    const e = await r.json(); Object.assign(estadoApp, e); chips(e.gemini, e.whisper, e.gemini_estado);
+    if (!e.gemini) $('#mas').open = true;
   } catch (err) {
     DEMO = true; chips(true, true);
     $('#aviso').innerHTML = '<div class="aviso-demo">Vista previa de la interfaz con <b>clips de ejemplo</b>. Para subir tus videos abre la app en tu PC con <code>iniciar.bat</code>.</div>';
