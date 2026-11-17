@@ -39,7 +39,7 @@ def _a_lista(x):
     return x
 
 
-def procesar(video, carpeta, opciones=None, log=print, progreso=lambda f, txt='': None):
+def procesar(video, carpeta, opciones=None, log=print, progreso=lambda f, txt='': None, cache=None):
     op = dict(OPCIONES, **{k: v for k, v in (opciones or {}).items() if v is not None})
     os.makedirs(carpeta, exist_ok=True)
     inf = medios.info(video)
@@ -49,12 +49,12 @@ def procesar(video, carpeta, opciones=None, log=print, progreso=lambda f, txt=''
 
     kf = tuple(float(x) for x in op['killfeed'].split(',')) if op['killfeed'] else analisis.KILLFEED
     # 1) análisis clásico (con caché para volver a renderizar rápido)
-    cache = os.path.join(carpeta, 'analisis.npz')
+    cache = cache or os.path.join(carpeta, 'analisis.npz')   # mismo video = no se vuelve a analizar
     if os.path.exists(cache):
         d = np.load(cache)
         a = {k[2:]: d[k] for k in d.files if k.startswith('a_')}
         v = {k[2:]: d[k] for k in d.files if k.startswith('v_')}
-        log('Análisis cargado de la caché')
+        log('Este video ya estaba analizado: me salto el análisis')
     else:
         progreso(0.02, 'Escuchando el audio (gritos, público, risas)...')
         a = analisis.analizar_audio(video) if inf['audio'] else dict(volumen=np.zeros(0), hype=np.zeros(0), brillo=np.zeros(0))

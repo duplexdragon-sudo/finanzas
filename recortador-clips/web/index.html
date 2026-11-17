@@ -405,6 +405,7 @@ function trabajoHTML(t){
       <div class="acciones">${confirmando
         ? `<span class="confirmar">¿Borrar video y clips?</span><button class="btn chico" type="button" data-borrar-si="${t.id}">Borrar</button><button class="btn sec chico" type="button" data-borrar-no>Cancelar</button>`
         : `${t.estado === 'listo' && clips.length ? (DEMO ? `<button class="btn" type="button" data-demo>Descargar todo .zip</button>` : `<a class="btn" href="/clips/${t.id}.zip">Descargar todo .zip</a>`) : ''}
+           ${['listo', 'error', 'interrumpido'].includes(t.estado) ? `<button class="btn sec" type="button" data-rehacer="${t.id}" title="Usa las opciones de la izquierda sin volver a subir el video">Sacar otros clips</button>` : ''}
            ${t.estado !== 'procesando' ? `<button class="btn sec" type="button" data-borrar="${t.id}">Borrar</button>` : ''}`}</div></div>
     <div class="etapas">${etapasHTML(t)}</div>
     <div class="paso-texto">${t.estado === 'listo' ? '' : t.estado === 'error' ? 'Error: ' + esc(t.error || '') + ' · revisa el registro' : esc(t.paso || 'Esperando turno') + ` <b>${pct}%</b>`}</div>
@@ -447,6 +448,16 @@ document.addEventListener('click', async e => {
     try { await navigator.clipboard.writeText(txt); toast('Texto copiado'); } catch (err) { toast('No se pudo copiar'); }
   } else if (b.matches('[data-demo]')) {
     toast('Vista previa: descarga desde la app en tu PC');
+  } else if (b.matches('[data-rehacer]')) {
+    if (DEMO) { toast('Vista previa: esto funciona en la app de tu PC'); return; }
+    guardar();
+    const fd = new FormData();
+    CAMPOS.forEach(k => fd.append(k, $('#' + k).value));
+    fd.append('filtro', filtroBusqueda); fd.append('formato', formato);
+    const r = await fetch('/api/trabajo/' + b.dataset.rehacer + '/rehacer', { method: 'POST', body: fd });
+    let j = {}; try { j = await r.json(); } catch (err) {}
+    toast(r.ok ? 'En cola con las opciones nuevas' : (j.error || 'No se pudo'));
+    window.scrollTo({ top: 0, behavior: 'smooth' }); refrescar();
   } else if (b.matches('[data-borrar]')) {
     estado.confirmar = b.dataset.borrar; refrescar();
   } else if (b.matches('[data-borrar-no]')) {

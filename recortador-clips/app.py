@@ -23,7 +23,8 @@ from recortador import gemini, pipeline, transcribir
 
 RAIZ = os.path.dirname(os.path.abspath(__file__))
 TRABAJOS = os.path.join(RAIZ, 'trabajos')
-os.makedirs(TRABAJOS, exist_ok=True)
+CACHE = os.path.join(TRABAJOS, '_cache')          # análisis guardados: el mismo video no se analiza dos veces
+os.makedirs(CACHE, exist_ok=True)
 
 app = Flask(__name__, static_folder=os.path.join(RAIZ, 'web'), static_url_path='/web')
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 ** 3          # hasta 20 GB por subida
@@ -44,6 +45,8 @@ def _guardar(id_, **cambios):
 def _cargar_estados():
     for id_ in os.listdir(TRABAJOS):
         p = os.path.join(TRABAJOS, id_, 'estado.json')
+        if id_.startswith('_'):
+            continue
         if os.path.exists(p):
             try:
                 e = json.load(open(p, encoding='utf-8'))
@@ -79,7 +82,11 @@ def trabajador():
 
         _guardar(id_, estado='procesando', inicio=time.time())
         try:
-            r = pipeline.procesar(os.path.join(carpeta, e['archivo']), os.path.join(carpeta, 'clips'), e['opciones'], log, progreso)
+            video = os.path.join(carpeta, e['archivo'])
+            kf = re.sub(r'[^0-9.,]', '', e['opciones'].get('killfeed') or '')
+            base = re.sub(r'[^A-Za-z0-9.-]', '_', e['archivo'])
+            cache = os.path.join(CACHE, '%d_%s%s.npz' % (os.path.getsize(video), base, '_' + kf if kf else ''))
+            r = pipeline.procesar(video, os.path.join(carpeta, 'clips'), e['opciones'], log, progreso, cache=cache)
             _guardar(id_, estado='listo', clips=r['clips'], progreso=1.0, segundos=r['segundos'], duracion=r['duracion'],
                      linea=_linea(r['linea_tiempo']))
         except Exception as ex:
@@ -117,15 +124,7 @@ def _num(v, tipo, defecto):
         return defecto
 
 
-@app.route('/api/subir', methods=['POST'])
-def api_subir():
-    f = request.files.get('video')
-    if not f or not f.filename:
-        return jsonify(error='No llegó ningún video'), 400
-    nombre = re.sub(r'[^\w.\- ]', '_', os.path.basename(f.filename))
-    if not nombre.lower().endswith(EXT):
-        return jsonify(error='Formato no soportado: usa mp4, mov, mkv, webm...'), 400
-    fo = request.form
+def _opciones(fo):
     op = dict(
         clips=max(1, min(30, _num(fo.get('clips'), int, 8))),
         dmin=max(5, _num(fo.get('dmin'), float, 15)), dmax=min(180, _num(fo.get('dmax'), float, 45)),
@@ -135,12 +134,46 @@ def api_subir():
         killfeed=fo.get('killfeed') or None, borrar_original=fo.get('borrar_original') == '1')
     if op['dmax'] < op['dmin']:
         op['dmax'] = op['dmin'] + 10
+    return op
+
+
+def _nuevo_trabajo(nombre, op, guardar):
     id_ = time.strftime('%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:6]
     os.makedirs(os.path.join(TRABAJOS, id_))
-    f.save(os.path.join(TRABAJOS, id_, nombre))
+    guardar(os.path.join(TRABAJOS, id_, nombre))
     _guardar(id_, id=id_, archivo=nombre, opciones=op, estado='en cola', progreso=0, paso='En cola', creado=time.time(), log=[])
     cola.put(id_)
-    return jsonify(id=id_)
+    return id_
+
+
+@app.route('/api/subir', methods=['POST'])
+def api_subir():
+    f = request.files.get('video')
+    if not f or not f.filename:
+        return jsonify(error='No llegó ningún video'), 400
+    nombre = re.sub(r'[^\w.\- ]', '_', os.path.basename(f.filename))
+    if not nombre.lower().endswith(EXT):
+        return jsonify(error='Formato no soportado: usa mp4, mov, mkv, webm...'), 400
+    return jsonify(id=_nuevo_trabajo(nombre, _opciones(request.form), f.save))
+
+
+@app.route('/api/trabajo/<id_>/rehacer', methods=['POST'])
+def api_rehacer(id_):
+    """sacar otros clips del mismo video con otras opciones, sin subirlo ni analizarlo otra vez"""
+    e = estados.get(id_)
+    if not e:
+        abort(404)
+    origen = os.path.join(TRABAJOS, id_, e['archivo'])
+    if not os.path.exists(origen):
+        return jsonify(error='El video original ya se borró: súbelo otra vez'), 400
+
+    def enlazar(destino):
+        try:
+            os.link(origen, destino)                       # mismo archivo, no ocupa espacio extra
+        except OSError:
+            import shutil
+            shutil.copy2(origen, destino)
+    return jsonify(id=_nuevo_trabajo(e['archivo'], _opciones(request.form), enlazar))
 
 
 @app.route('/api/trabajos')
