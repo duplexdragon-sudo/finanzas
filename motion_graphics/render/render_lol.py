@@ -86,6 +86,14 @@ def mono(img, keep_light=False):
     else: m = (a[..., 3] > 128).astype(np.uint8) * 255
     o = Image.new("RGBA", im.size, (255, 255, 255, 255)); o.putalpha(Image.fromarray(m)); o = o.crop(o.getbbox()); o.thumbnail((128, 128), Image.LANCZOS)
     c = Image.new("RGBA", (128, 128)); c.alpha_composite(o, ((128 - o.width) // 2, (128 - o.height) // 2)); return c
+def twotone(img, base, inner, light_only=True):
+    """Logo en dos tonos de marca: silueta del color 'base' y letras claras del color 'inner'."""
+    a = np.asarray(img.convert("RGBA")).astype(int); sil = a[..., 3] > 100; lt = (a[..., :3].min(2) > 170) & sil
+    o = np.zeros(a.shape, np.uint8); o[sil] = base + (255,); o[lt] = inner + (255,); return Image.fromarray(o, "RGBA")
+def solid(img, col):
+    a = np.asarray(img.convert("RGBA")); o = Image.new("RGBA", img.size, col + (255,)); o.putalpha(Image.fromarray(a[..., 3])); return o
+BLG_P, BLG_W = twotone(BLG, PUR, WHITE), twotone(BLG, WHITE, PUR)     # morado sobre fondo blanco · blanco sobre fondo morado
+GEN_W = solid(GEN, WHITE)
 TEAMS = [mono(BLG, True), mono(GEN)] + [mono(logo_c(os.path.join(PD, "logos", f), 200)) for f in sorted(os.listdir(os.path.join(PD, "logos"))) if f.startswith("eq_")]
 ORB_ICONS = [TEAMS[k % len(TEAMS)] for k in range(max(8, len(TEAMS)))]   # logos de los equipos del Mundial girando (teñidos)
 _XE = Image.open(os.path.join(PD, "logos", "marca_xe.png")).convert("RGBA"); _XE = _XE.crop(_XE.getchannel("A").getbbox()); _XE = _XE.resize((58, int(_XE.height * 58 / _XE.width)), Image.LANCZOS)
@@ -237,7 +245,7 @@ def scene(name, T):
                 pop(im, nchip("NUEVA YORK · BARCLAYS CENTER", WHITE, PUR, 34), 360, 1080, T, tn + .1, .3)
         else:
             ribbon(im, "14 NOV · NUEVA YORK", 360, 160, T, tg, PUR, WHITE, 46, "mm")
-            pop(im, sc(BLG, 220), 175, 520, T, tg, .35); pop(im, sc(GEN, 130), 545, 520, T, wt(2, "Yen") - .1, .35)
+            pop(im, sc(BLG_W, 220), 175, 520, T, tg, .35); pop(im, sc(GEN_W, 130), 545, 520, T, wt(2, "Yen") - .1, .35)
             counter(im, T, tg, wt(2, "uno"), 0, 3, ANTON(150), 330, 520, WHITE); slam(im, "–1", ANTON(150), 400, 520, T, wt(2, "uno") - .05, WHITE)
             tf = wt(2, "Yi") + .1
             if T > tf: stamp(im, "BLG 3–1 GEN.G", 360, 780, T, tf, (255, 255, 255), -5, 90)
@@ -288,7 +296,7 @@ def scene(name, T):
             elif body is not None:
                 c = card(headcrop(body, 1.05, 2.8), int(380 * lerp(.85, 1, pc))); paste(im, c, 360, 650 + bob(T, j) * .4, clamp01(pc * 2))
             else:
-                c = card(sc(BLG, 300).crop((0, 0, 300, int(BLG.height * 300 / BLG.width))), int(380 * lerp(.85, 1, pc))); paste(im, c, 360, 650, clamp01(pc * 2))
+                c = card(sc(BLG_P, 300), int(380 * lerp(.85, 1, pc))); paste(im, c, 360, 650, clamp01(pc * 2))
             if key == "Náit": rolefly(im, T, t0 + .15, key, 615, 1040, 84)
             else: rolefly(im, T, t0 + .15, key, 560, 860, 96)
             return flash(im, T, ts[1:])
@@ -343,7 +351,7 @@ def cta(T):
     tc = wt(k, "comentarios") - .1; tsh = wt(k, "compártelo") - .15
     if tc < T < tsh: pop(im, U.COMMENT, 150, 530 + math.sin(T * 5) * 10, T, tc, .35); word(im, "comenta", IT(900, 40), 150, 615, T, tc + .05, PUR)
     if T >= tsh: pop(im, U.SHARE, 150, 530 + math.sin(T * 5) * 10, T, tsh, .35); word(im, "compártelo", IT(900, 38), 150, 615, T, tsh + .05, PUR)
-    orb(im, sc(BLG, 220), 480, 800 + 6 * math.sin(T * 2), T, max(0, t - .3), clamp01((t - .3) * 3), 56, PUR, LIL)
+    orb(im, sc(BLG_P, 220), 480, 800 + 6 * math.sin(T * 2), T, max(0, t - .3), clamp01((t - .3) * 3), 56, PUR, LIL)
     for j, s_ in enumerate(("Fuentes: LoL Esports · Liquipedia · Sheep Esports · Dot Esports · CGTN · nov 2026", "Final Worlds 2026: Bilibili Gaming 3–1 Gen.G · Barclays Center, Nueva York")):
         p = prog(t, 1 + j * .2, 1.4 + j * .2)
         if p > 0:

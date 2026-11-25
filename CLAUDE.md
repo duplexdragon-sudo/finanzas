@@ -60,6 +60,7 @@ Además, hay que mirar la hoja `--preview` de **todo** el video (unos 48 cuadros
 ## 5b. Videos de League of Legends
 - **Cuando Carlos pida un video de LoL, siempre se pone la marca de agua XE** (`motion_graphics/marcas/marca_xe.png`) en **todo** el video, arriba a la derecha: blanca sobre morado y morada sobre blanco.
 - **Los videos de Valorant son 100 % de Carlos:** llevan solo @DuplexDragon_, **sin** la marca XE.
+- **Logos de equipos en pantalla (no solo en el anillo):** siempre en los colores de la marca: **morado sobre fondo blanco y blanco sobre fondo morado**; nunca en sus colores originales.
 - **Anillo que gira en LoL:** logos de los equipos que participan, en un solo color (blanco sobre morado, morado sobre blanco), nunca círculos ni bolas.
 - **Tarjetas de jugadores:** recortadas centradas en la cabeza (`headcrop`), para que todas las caras queden del mismo tamaño.
 - **Objetos recortados** (la copa, por ejemplo): silueta sólida y centrada; si la foto tiene un fondo difícil, se pide una con fondo liso.
