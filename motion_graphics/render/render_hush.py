@@ -11,7 +11,7 @@ from render_smg import (W, H, PUR, LIL, LILL, WHITE, INK, ANTON, IT, SANS, bg, d
 import render_loud as L
 import render_sen as SN
 HERE = os.path.dirname(os.path.abspath(__file__)); PD = os.path.join(HERE, "..", "hush"); FPS = 30
-SONG = os.path.join(HERE, "..", "audio", "musica", "c9_ext.wav"); SONG_AT = 0.0; T1 = os.path.join(HERE, "..", "zek", "clips", "despedida.mp4")
+SONG = os.path.join(HERE, "..", "audio", "musica", "c9_ext84.wav"); SONG_AT = 0.0; T1 = os.path.join(HERE, "..", "zek", "clips", "despedida.mp4")
 
 N = len(json.load(open(os.path.join(PD, "guion.json")))); DL, WT = [], []
 for i in range(N):
@@ -117,20 +117,56 @@ def vcard(name, ss, crop, T, t0, size, grow=.008):
     c = L.rcard(gclip(name, ss, crop, T - t0, size), 28, WHITE); s_ = lerp(.85, 1, pc) * (1 + grow * max(0, T - t0))
     return c.resize((int(c.width * s_), int(c.height * s_))), clamp01(pc * 2)
 # recortes del área de juego de cada clip (con arma y HUD)
-CR = {"tk1": (0, 400, 720, 880), "tk2": (0, 181, 576, 662), "tk3": (0, 340, 1080, 1228), "tk4": (0, 320, 576, 704), "tk5": (0, 373, 576, 331)}
+CR = {"of": (0, 496, 720, 408), "tk1": (0, 400, 720, 880), "tk2": (0, 181, 576, 662), "tk3": (0, 340, 1080, 1228), "tk4": (0, 320, 576, 704), "tk5": (0, 373, 576, 331)}
 _SC = {}
+SECT = {"of": [(4.0, 10.6), (11.0, 22.8), (23.0, 27.9), (28.0, 34.9), (35.0, 42.6)]}   # secciones del video oficial (una por habilidad)
 def synclip(im, name, ss, t_word, T, tcard, size, y, win=3.0):
-    pre = max(0.0, t_word - tcard); st = max(0.0, ss - pre); dur = (ss - st) + win; key = (name, st, dur, size)
-    if key not in _SC: _SC[key] = gclip(name, st, CR[name], 0, size, dur) and _GC[(name, st, CR[name], size)]
-    fr = _GC[(name, st, CR[name], size)]; n = len(fr); i = int(max(0, T - tcard) * 30); k0 = int((ss - st) * 30)
-    if i >= n: i = k0 + (i - k0) % max(1, n - k0)
+    lo, hi = next(((a, b) for a, b in SECT.get(name, []) if a <= ss <= b), (0.0, 1e9))
+    pre = max(0.0, t_word - tcard); st = max(lo, ss - pre); win = min(win, hi - ss); dur = (ss - st) + win
+    key = (name, st, CR[name], size)
+    if key not in _GC: gclip(name, st, CR[name], 0, size, dur)
+    fr = _GC[key]; n = len(fr); i = int((T - t_word + (ss - st)) * 30)        # la habilidad cae justo en la palabra
+    if i < 0: i = i % n                                                         # antes: repite su propia sección, nunca otra cosa
+    elif i >= n: k0 = int((ss - st) * 30); i = k0 + (i - k0) % max(1, n - k0)
     pc = ease_back(prog(T, tcard, tcard + .3), 1.2)
     if pc <= 0: return
     c = L.rcard(Image.fromarray(fr[min(i, n - 1)]).convert("RGBA"), 28, WHITE); s_ = lerp(.85, 1, pc)
     c = c.resize((int(c.width * s_), int(c.height * s_))); c._clip = True; paste(im, c, 360, y, clamp01(pc * 2))
+def mousecap(side, sz=96):
+    c = Image.new("RGBA", (sz, sz)); d = ImageDraw.Draw(c); d.rounded_rectangle((0, 0, sz - 1, sz - 1), 20, fill=WHITE + (255,), outline=PUR + (255,), width=5)
+    x0, y0, x1, y1 = sz * .3, sz * .14, sz * .7, sz * .86; d.rounded_rectangle((x0, y0, x1, y1), int(sz * .2), outline=PUR + (255,), width=4)
+    xm, ym = sz / 2, sz * .45; d.line((xm, y0, xm, ym), fill=PUR + (255,), width=3); d.line((x0, ym, x1, ym), fill=PUR + (255,), width=3)
+    if side == "L": d.rounded_rectangle((x0 + 3, y0 + 3, xm - 2, ym - 2), 6, fill=PUR + (255,))
+    elif side == "R": d.rounded_rectangle((xm + 2, y0 + 3, x1 - 3, ym - 2), 6, fill=PUR + (255,))
+    else: d.ellipse((xm - 6, ym + 8, xm + 6, ym + 20), fill=PUR + (255,))
+    return shadow(c, 8, 8, .3)
+def stepcap(it, sz=96):
+    if it in ("L", "R", "M"): return mousecap(it, sz)
+    if it == "SALTO":
+        c = Image.new("RGBA", (int(sz * 1.6), sz)); d = ImageDraw.Draw(c); d.rounded_rectangle((0, 0, c.width - 1, sz - 1), 20, fill=WHITE + (255,), outline=PUR + (255,), width=5)
+        d.text((c.width / 2, sz / 2), "ESPACIO", font=ANTON(int(sz * .3)), fill=PUR, anchor="mm"); return shadow(c, 8, 8, .3)
+    return keycap("F·" if it == "F" else it, sz)
+STEPLBL = {"L": "CLIC IZQ.", "R": "CLIC DER.", "M": "MIRA", "SALTO": "SALTAR"}
+def steps(im, T, items, y, purple_bg):
+    """Fila de teclas que aparecen una por una, justo cuando la voz las dice, con flechas entre ellas."""
+    sz = 92; caps = [stepcap(k, sz) for k, _ in items]; gap = 46; tw = sum(c.width for c in caps) + gap * (len(caps) - 1); x = 360 - tw / 2
+    fg = WHITE if purple_bg else PUR
+    for i, ((k, t0), c) in enumerate(zip(items, caps)):
+        cx = x + c.width / 2; p = ease_back(prog(T, t0 - .1, t0 + .2), 1.6)
+        if p > 0:
+            on = T < (items[i + 1][1] - .1 if i + 1 < len(items) else 1e9)          # la tecla que se está diciendo late
+            cc = c.resize((max(1, int(c.width * p * (1.08 if on else 1))), max(1, int(c.height * p * (1.08 if on else 1)))))
+            paste(im, cc, cx, y, clamp01(p * 2))
+            if k in STEPLBL: paste(im, text_layer(STEPLBL[k], ANTON(22), fg), cx, y + 66, clamp01(p * 2))
+            if i > 0: paste(im, text_layer("›", ANTON(60), fg), x - gap / 2, y - 4, clamp01(p * 2))
+        x += c.width + gap
+def wx(k, w_, n=0):
+    """Tiempo de una palabra EXACTA (sin puntuación), la n-ésima vez que aparece en la frase k."""
+    hits = [st for w, st in WT[k] if w.strip(".,:;¿?¡!…").lower() == w_.lower()]
+    return LS[k] + hits[min(n, len(hits) - 1)]
 def keycap(k, sz=96):
     c = Image.new("RGBA", (sz, sz)); d = ImageDraw.Draw(c); d.rounded_rectangle((0, 0, sz - 1, sz - 1), 20, fill=WHITE + (255,), outline=PUR + (255,), width=5)
-    t = k if k != "F" else "PASIVA"; f = ANTON(int(sz * (.55 if len(t) == 1 else .26))); d.text((sz / 2, sz / 2), t, font=f, fill=PUR, anchor="mm"); return shadow(c, 8, 8, .3)
+    t = {"F": "PASIVA", "F·": "F"}.get(k, k); f = ANTON(int(sz * (.55 if len(t) == 1 else .26))); d.text((sz / 2, sz / 2), t, font=f, fill=PUR, anchor="mm"); return shadow(c, 8, 8, .3)
 def habdisc(k, sz, purple_bg):
     c = Image.new("RGBA", (sz, sz)); d = ImageDraw.Draw(c); d.ellipse((0, 0, sz - 1, sz - 1), fill=(WHITE if purple_bg else PUR) + (255,))
     ic = sc(HAB[k], int(sz * .62)); t = Image.new("RGBA", ic.size, (PUR if purple_bg else WHITE) + (255,)); t.putalpha(ic.getchannel("A"))
@@ -145,7 +181,7 @@ def habhead(im, T, t0, k, purple_bg):
     fg = WHITE if purple_bg else PUR
     slam(im, HNAME[k], ANTON(96), 400, 150, T, t0, fg)
     if T > t0 + .25: pop(im, keycap(k, 84), 120, 150, T, t0 + .25, .3)
-    habfly(im, T, t0 + .1, k, 360, SY(240), 84, purple_bg)
+    habfly(im, T, t0 + .3, k, 360, SY(240), 84, purple_bg)
 
 RED = (200, 30, 60)
 def clipin(im, name, ss, T, t0, size, y=660):
@@ -183,47 +219,39 @@ def scene(name, T):
         return im
     if name == "L2":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "F", True)
-        synclip(im, "tk1", 31.0, wt(2, "agarra"), T, SEG[name] + .15, (380, 434), 690, 2.5)
-        ks = [("ARMAS", "armas"), ("SPIKE", "spike"), ("INTERRUPTORES", "interruptores")]
-        cur = [tx for tx, w in ks if T > wt(2, w) - .2]
-        if cur: label(im, " · ".join(cur) + ("  DESDE LEJOS" if T > wt(2, "lejos") - .2 else ""), T, wt(2, "armas") - .2, True)
+        synclip(im, "of", 5.6, wx(2, "presiona"), T, SEG[name] + .15, (600, 340), 600, 4.0)
+        steps(im, T, [("M", wx(2, "apunta")), ("F", wx(2, "F"))], 880, True)
         return im
     if name == "L3":
         im = bg("w", "DASH"); stripes(im, T, SEG[name], PUR, .5); habhead(im, T, SEG[name] + .05, "C", False)
-        synclip(im, "tk2", 4.0, wt(3, "pones"), T, SEG[name] + .15, (380, 436), 700, 5.0)
-        tl = wt(3, "largo") - .3
-        if T > tl: stamp(im, "EL DASH MÁS LARGO", 360, 1165, T, tl, PUR, -4, 64)
+        synclip(im, "of", 28.3, wx(3, "salta"), T, SEG[name] + .15, (600, 340), 600, 6.0)
+        steps(im, T, [("SALTO", wx(3, "salta")), ("M", wx(3, "apunta")), ("C", wx(3, "C", 1))], 880, False)
         return im
     if name == "L4":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "Q", True)
-        synclip(im, "tk3", 24.0, wt(4, "flash"), T, SEG[name] + .15, (380, 434), 700, 4.0)
-        tr = wt(4, "rediriges") - .2
-        if T > tr: label(im, "REDIRÍGELO EN EL AIRE", T, tr, True)
+        synclip(im, "of", 23.6, wx(4, "clic"), T, SEG[name] + .15, (600, 340), 600, 4.0)
+        steps(im, T, [("Q", wx(4, "Q", 1)), ("L", wx(4, "clic")), ("Q", wx(4, "Q", 2))], 880, True)
         return im
     if name == "L5":
         im = bg("w", "PULL"); stripes(im, T, SEG[name], PUR, .5); habhead(im, T, SEG[name] + .05, "E", False)
-        synclip(im, "tk3", 37.0, wt(5, "atrae"), T, SEG[name] + .15, (380, 434), 700, 2.2)
-        steps = [("ATRAE AL CENTRO", wt(5, "atrae")), ("PARED = ATURDIDO", wt(5, "pared")), ("SE RECARGA CADA 2 KILLS", wt(5, "recarga"))]
-        cur = [(tx, t0) for tx, t0 in steps if T > t0 - .2]
-        if cur: label(im, cur[-1][0], T, cur[-1][1] - .2, False)
+        synclip(im, "of", 13.0, wx(5, "lánzala"), T, SEG[name] + .15, (600, 340), 600, 9.0)
+        ta = wx(5, "Atrae") - .2
+        if T < ta: steps(im, T, [("E", wx(5, "E", 1)), ("L", wx(5, "clic")), ("R", wx(5, "clic", 1)), ("E", wx(5, "E", 2))], 880, False)
+        else: label(im, "PARED = ATURDIDO" if T > wx(5, "pared") - .2 else "ATRAE A TODOS AL CENTRO", T, ta, False, 1080)
         return im
     if name == "L6":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "X", True)
-        synclip(im, "tk5", 29.5, wt(6, "deja"), T, SEG[name] + .15, (600, 344), 620, 2.0)
-        tc = wt(6, "cuatro") - .2
-        if T > wt(6, "guías") - .2 and T < tc: label(im, "LA GUÍAS CON LA MIRA", T, wt(6, "guías") - .2, True, 880)
-        label(im, "TENZ · RANKED", T, tc, True, 880) if T > tc else None
-        if T > tc: stamp(im, "4 SEGUNDOS LEVITANDO", 360, 1150, T, tc, (255, 255, 255), -4, 64)
+        synclip(im, "of", 35.2, wx(6, "presiona"), T, SEG[name] + .15, (600, 340), 600, 7.0)
+        tt = wx(6, "Todos") - .2
+        if T < tt: steps(im, T, [("X", wx(6, "X", 1)), ("L", wx(6, "clic")), ("M", wx(6, "guíala")), ("X", wx(6, "X", 2))], 880, True)
+        else: stamp(im, "TODOS LEVITANDO", 360, 1100, T, tt, (255, 255, 255), -4, 70)
         return im
     if name == "L7":
         im = bg("w", "TRUCO"); stripes(im, T, SEG[name], PUR, .5)
         slam(im, "TRUCO 1", ANTON(130), 360, 160, T, SEG[name] + .05, PUR)
-        synclip(im, "tk5", 7.0, wt(7, "flash"), T, SEG[name] + .15, (600, 344), 560, 5.0)
+        synclip(im, "tk5", 7.0, wx(7, "flash"), T, SEG[name] + .15, (600, 344), 560, 5.0)
         label(im, "TENZ · ENTRY", T, SEG[name] + .4, False, 790)
-        tq = wt(7, "flash") - .2; tc = wt(7, "Áncora") - .2
-        habfly(im, T, tq, "Q", 250, 920, 100, False)
-        if T > tc - .1: slam(im, "+", ANTON(90), 360, 1090, T, tc - .1, PUR)
-        habfly(im, T, tc, "C", 470, 920, 100, False)
+        steps(im, T, [("Q", wx(7, "flash")), ("R", wx(7, "clic")), ("C", wx(7, "C"))], 900, False)
         return im
     if name == "L8":
         im = pur(T, name); slam(im, "TRUCO 2", ANTON(130), 360, 160, T, SEG[name] + .05, WHITE)
@@ -239,8 +267,8 @@ def scene(name, T):
             calflip(im, T, SEG[name] + .1, wt(9, "octubre") + .1, CAL_OCT, 600)
         else:
             slam(im, "Y YA HAY JUGADAS ASÍ", ANTON(84), 360, 150, T, ty, PUR)
-            synclip(im, "tk3", 3.0, ty + .4, T, ty, (380, 434), 680, 3.5)
-            stamp(im, "ACE", 360, 1160, T, ty + .25, PUR, -6, 100)
+            synclip(im, "tk3", 3.0, ty + .4, T, ty, (360, 410), 640, 3.5)
+            stamp(im, "ACE", 360, 1170, T, ty + .25, PUR, -6, 84)
         return flash(im, T, (ty,))
     return cta(T)
 
@@ -263,8 +291,8 @@ KICK = {"L0": " ", "L1": "CHINA", "L2": " ", "L3": " ", "L4": " ", "L5": " ", "L
 SN.KICK = KICK; SN._kc.clear()
 HITS = []
 def hits():
-    if not HITS: HITS.extend([.15, wt(0, "más"), wt(0, "así"), wt(1, "telequinesis"), SEG["L2"] + .1, SEG["L3"] + .1, wt(3, "largo"), SEG["L4"] + .1, wt(4, "rediriges"), SEG["L5"] + .1, wt(5, "pared"),
-                              SEG["L6"] + .1, wt(6, "cuatro"), wt(7, "Áncora"), wt(8, "pared"), wt(9, "ya")])
+    if not HITS: HITS.extend([.15, wt(0, "más"), wt(0, "así"), wt(1, "telequinesis"), SEG["L2"] + .1, SEG["L3"] + .1, wt(3, "disparada"), SEG["L4"] + .1, wt(4, "mira"), SEG["L5"] + .1, wt(5, "pared"),
+                              SEG["L6"] + .1, wt(6, "levitando"), wt(7, "C"), wt(8, "pared"), wt(9, "ya")])
     return HITS
 def frame(T):
     name = [n for n in ORDER if T >= SEG[n]][-1]; idx = ORDER.index(name); img = scene(name, T); dc = T - SEG[name]
@@ -293,8 +321,8 @@ def audio(out):
     k = N - 1
     ev = [("braam", 0.0, .7), ("hit808", 0.0, .6)] + [("swoosh", SEG[n] - .2, .55) for n in ORDER[1:]] + [("hit808", h0, .6) for h0 in hits()] + [
         ("glitch", h0, .35) for h0 in hits()[::2]] + [
-        ("shimmer", wt(0, "así"), .4)] + [("pop", SEG[f"L{i}"] + .15, .5) for i in range(2, 7)] + [("swoosh", wt(3, "sales"), .6), ("impact", wt(4, "rediriges"), .5),
-        ("impact", wt(5, "pared"), .5), ("riser", SEG["L6"] - 1.0, .35), ("braam", wt(6, "cuatro"), .45), ("pop", wt(7, "flash"), .5), ("pop", wt(7, "Áncora"), .5),
+        ("shimmer", wt(0, "así"), .4)] + [("pop", SEG[f"L{i}"] + .15, .5) for i in range(2, 7)] + [("swoosh", wt(3, "sales"), .6), ("impact", wt(4, "mira"), .5),
+        ("impact", wt(5, "pared"), .5), ("riser", SEG["L6"] - 1.0, .35), ("braam", wt(6, "levitando"), .45), ("pop", wt(7, "flash"), .5), ("pop", wt(7, "C"), .5),
         ("typing", SEG["L9"] + .2, .35), ("boom", wt(9, "ya"), .5), ("cheer", wt(9, "ya") + .2, .3),
         ("pop", wt(k, "comentarios"), .6), ("pop", wt(k, "compártelo"), .6), ("shimmer", wt(k, "compártelo"), .4)]
     for k_, t0, g in ev:
