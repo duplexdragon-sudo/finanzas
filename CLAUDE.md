@@ -65,7 +65,6 @@ Además, hay que mirar la hoja `--preview` de **todo** el video (unos 48 cuadros
 - **Tarjetas de jugadores:** recortadas centradas en la cabeza (`headcrop`), para que todas las caras queden del mismo tamaño.
 - **Objetos recortados** (la copa, por ejemplo): silueta sólida y centrada; si la foto tiene un fondo difícil, se pide una con fondo liso.
 - Los nombres de equipos se dicen **en inglés**. En la voz se escriben fonéticamente ("Yen Yi", "Ti Uan", "Janwa Laif", "Di Plas Kía", "Bilibili Guéiming") y en pantalla van bien escritos.
-- En el anillo que gira van **campeones a color** (sin teñir) en vez de habilidades de Valorant.
 - En lugar del símbolo de rol va la **posición** (TOP/JG/MID/ADC/SUP).
 
 ## 7. Guardar siempre
