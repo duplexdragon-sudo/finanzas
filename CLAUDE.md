@@ -22,6 +22,8 @@ Además, hay que mirar la hoja `--preview` de **todo** el video (unos 48 cuadros
 - Se respeta la **zona segura de TikTok e IG**: función `SY()`, 120 px arriba y lejos de los botones de la derecha y del pie.
 - Los nombres van **debajo de la cara** (en el pecho), nunca encima.
 - El **agente de Valorant** siempre va **delante** del texto.
+- **El agente nunca tapa el título:** va debajo del título (más chico si hace falta), con la cabeza completa dentro del cuadro.
+- **Nada de letras fantasma** (texto gigante con contorno de fondo) detrás de un agente o encima de un clip de jugada.
 - Revisar la **ortografía** de cada texto en pantalla, con tildes y nombres bien escritos (GLYPH, nightz, FireBallOps…).
 - **Estética:**
   - Morado `(115, 16, 165)` con letra blanca, o blanco con cuadrícula y letra morada.
