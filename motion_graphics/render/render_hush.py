@@ -101,7 +101,7 @@ def flash(im, T, ts):
     tt = T - max([x for x in ts if x <= T] or [-9])
     return Image.blend(im, canvas(LILL + (255,)), .75 * (1 - tt / .12)) if 0 < tt < .12 and T > .3 else im
 CL = os.path.join(PD, "clips"); _GC = {}
-def gclip(name, ss, crop, t, size, dur=3.0):
+def gclip(name, ss, crop, t, size, dur=6.0):
     key = (name, ss, crop, size)
     if key not in _GC:
         x, y, w, h = crop
@@ -110,8 +110,8 @@ def gclip(name, ss, crop, t, size, dur=3.0):
         a = np.frombuffer(raw, np.uint8).reshape(-1, size[1], size[0], 3).astype(np.float32)
         l = a.mean(3, keepdims=True) / 255; shd = np.clip(.55 - l, 0, .55) / .55
         _GC[key] = np.clip(a * (1 - .25 * shd) + np.array(PUR, np.float32) * .25 * shd, 0, 255).astype(np.uint8)
-    fr = _GC[key]; return Image.fromarray(fr[int(np.clip(t * 30, 0, len(fr) - 1))]).convert("RGBA")
-def vcard(name, ss, crop, T, t0, size, grow=.03):
+    fr = _GC[key]; return Image.fromarray(fr[int(t * 30) % len(fr)]).convert("RGBA")
+def vcard(name, ss, crop, T, t0, size, grow=.008):
     pc = ease_back(prog(T, t0, t0 + .3), 1.2)
     if pc <= 0: return None
     c = L.rcard(gclip(name, ss, crop, T - t0, size), 28, WHITE); s_ = lerp(.85, 1, pc) * (1 + grow * max(0, T - t0))
@@ -142,7 +142,7 @@ def clipin(im, name, ss, T, t0, size, y=660):
     y = y + 40 if y >= 640 and y <= 700 else y
     r = vcard(name, ss, CR[name], T, t0, size)
     if r: paste(im, r[0], 360, y, r[1])
-def label(im, txt, T, t0, purple_bg, y=1085):
+def label(im, txt, T, t0, purple_bg, y=1135):
     pop(im, nchip(txt, WHITE if purple_bg else PUR, PUR if purple_bg else WHITE, 30), 360, y, T, t0, .3)
 def scene(name, T):
     t = T - SEG[name]
@@ -173,53 +173,54 @@ def scene(name, T):
         return im
     if name == "L2":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "F", True)
-        clipin(im, "tk1", 3.5, T, SEG[name] + .2, (420, 500), 680)
+        clipin(im, "tk1", 30.4, T, wt(2, "agarra") - .4, (380, 434), 650)
         ks = [("ARMAS", "armas"), ("SPIKE", "spike"), ("INTERRUPTORES", "interruptores")]
         cur = [tx for tx, w in ks if T > wt(2, w) - .2]
         if cur: label(im, " · ".join(cur) + ("  DESDE LEJOS" if T > wt(2, "lejos") - .2 else ""), T, wt(2, "armas") - .2, True)
         return im
     if name == "L3":
         im = bg("w", "DASH"); stripes(im, T, SEG[name], PUR, .5); habhead(im, T, SEG[name] + .05, "C", False)
-        clipin(im, "tk2", 3.2, T, SEG[name] + .2, (420, 482), 660)
+        clipin(im, "tk2", 3.6, T, wt(3, "pones") - .2, (380, 436), 660)
         tl = wt(3, "largo") - .3
-        if T > tl: stamp(im, "EL DASH MÁS LARGO", 360, 1110, T, tl, PUR, -5, 80)
+        if T > tl: stamp(im, "EL DASH MÁS LARGO", 360, 1165, T, tl, PUR, -4, 64)
         return im
     if name == "L4":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "Q", True)
-        clipin(im, "tk3", 10.8, T, SEG[name] + .2, (430, 490), 660)
+        clipin(im, "tk3", 11.4, T, wt(4, "lanzas") - .3, (380, 434), 660)
         tr = wt(4, "rediriges") - .2
         if T > tr: label(im, "REDIRÍGELO EN EL AIRE", T, tr, True)
         return im
     if name == "L5":
         im = bg("w", "PULL"); stripes(im, T, SEG[name], PUR, .5); habhead(im, T, SEG[name] + .05, "E", False)
-        clipin(im, "tk3", 43.0, T, SEG[name] + .2, (430, 490), 660)
+        clipin(im, "tk3", 36.0, T, wt(5, "atrae") - .6, (380, 434), 660)
         steps = [("ATRAE AL CENTRO", wt(5, "atrae")), ("PARED = ATURDIDO", wt(5, "pared")), ("SE RECARGA CADA 2 KILLS", wt(5, "recarga"))]
         cur = [(tx, t0) for tx, t0 in steps if T > t0 - .2]
         if cur: label(im, cur[-1][0], T, cur[-1][1] - .2, False)
         return im
     if name == "L6":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "X", True)
-        clipin(im, "tk4", 9.0, T, SEG[name] + .2, (420, 514), 670)
+        clipin(im, "tk5", 28.2, T, wt(6, "deja") - .6, (600, 344), 620)
         tc = wt(6, "cuatro") - .2
-        if T > wt(6, "guías") - .2 and T < tc: label(im, "LA GUÍAS CON LA MIRA", T, wt(6, "guías") - .2, True)
-        if T > tc: stamp(im, "4 SEGUNDOS LEVITANDO", 360, 1110, T, tc, (255, 255, 255), -5, 72)
+        if T > wt(6, "guías") - .2 and T < tc: label(im, "LA GUÍAS CON LA MIRA", T, wt(6, "guías") - .2, True, 880)
+        label(im, "TENZ · RANKED", T, tc, True, 880) if T > tc else None
+        if T > tc: stamp(im, "4 SEGUNDOS LEVITANDO", 360, 1150, T, tc, (255, 255, 255), -4, 64)
         return im
     if name == "L7":
         im = bg("w", "TRUCO"); stripes(im, T, SEG[name], PUR, .5)
         slam(im, "TRUCO 1", ANTON(130), 360, 160, T, SEG[name] + .05, PUR)
-        clipin(im, "tk5", 9.6, T, SEG[name] + .2, (600, 344), 560)
+        clipin(im, "tk5", 6.4, T, wt(7, "prepara") - .3, (600, 344), 560)
         label(im, "TENZ · ENTRY", T, SEG[name] + .4, False, 790)
         tq = wt(7, "flash") - .2; tc = wt(7, "Áncora") - .2
         habfly(im, T, tq, "Q", 250, 920, 100, False)
-        if T > tc - .1: slam(im, "+", ANTON(90), 360, 920, T, tc - .1, PUR)
+        if T > tc - .1: slam(im, "+", ANTON(90), 360, 1090, T, tc - .1, PUR)
         habfly(im, T, tc, "C", 470, 920, 100, False)
         return im
     if name == "L8":
         im = pur(T, name); slam(im, "TRUCO 2", ANTON(130), 360, 160, T, SEG[name] + .05, WHITE)
-        clipin(im, "tk4", 2.0, T, SEG[name] + .2, (420, 514), 650)
+        clipin(im, "tk3", 39.4, T, wt(8, "tira") - .2, (380, 434), 650)
         tp = wt(8, "pared") - .2
         habfly(im, T, wt(8, "Cinestesia") - .2, "E", 590, 420, 92, True)
-        if T > tp: label(im, "CINESTESIA + PARED = STUN", T, tp, True, 1150)
+        if T > tp: label(im, "CINESTESIA + PARED = STUN", T, tp, True, 1140)
         return im
     if name == "L9":
         im = bg("w", "27"); stripes(im, T, SEG[name], PUR, .5); ty = wt(9, "ya") - .15
@@ -228,8 +229,8 @@ def scene(name, T):
             calflip(im, T, SEG[name] + .1, wt(9, "octubre") + .1, CAL_OCT, 600)
         else:
             slam(im, "Y YA HAY JUGADAS ASÍ", ANTON(84), 360, 150, T, ty, PUR)
-            clipin(im, "tk3", 3.0, T, ty, (430, 490), 640)
-            stamp(im, "ACE", 360, 1100, T, ty + .25, PUR, -6, 120)
+            clipin(im, "tk3", 2.0, T, ty, (380, 434), 640)
+            stamp(im, "ACE", 360, 1160, T, ty + .25, PUR, -6, 100)
         return flash(im, T, (ty,))
     return cta(T)
 

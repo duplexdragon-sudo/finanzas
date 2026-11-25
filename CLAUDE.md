@@ -8,7 +8,7 @@ El código vive en `motion_graphics/` y la guía técnica completa está en `APR
 Ningún video se manda sin pasar estas 4 revisiones:
 
 1. **Revisor de texto:** `python3 revisor_texto.py render_<proyecto> 4` debe dar **`CHOQUES: 0`**.
-   - Recorre el video cuadro a cuadro y marca en rojo (`revisor_texto.jpg`) cualquier texto que toque otro texto, una cara o un logo.
+   - Recorre el video cuadro a cuadro y marca en rojo (`revisor_texto.jpg`) cualquier texto que toque otro texto, una cara, un logo o **un clip de jugada**.
 2. **Tramos quietos:** `python3 quietos.py <video>` debe dar **0 tramos quietos**.
 3. **Volumen:** `ebur128` entre **−13 y −14 LUFS**.
 4. **Material:** `python3 inventario.py` debe confirmar que **todo** lo que mandó Carlos (fotos, logos, clips) está usado.
@@ -52,6 +52,8 @@ Además, hay que mirar la hoja `--preview` de **todo** el video (unos 48 cuadros
 ## 5. Noticias y guion
 - **Todo se verifica en la web** (vlr.gg, Liquipedia, THESPIKE, Sheep Esports, la cuenta oficial del equipo). Si no es oficial, se dice **"según reportes"**. Nunca se inventa.
 - Si Carlos manda clips, **revisar que cada jugada sea del jugador correcto** antes de usarla.
+- **Cada clip tiene que mostrar exactamente lo que dice la voz en ese momento.** Antes de montar, se revisa cada clip segundo a segundo (hoja con tiempos) y se anota en qué segundo aparece cada habilidad o jugada; el clip arranca justo ahí.
+- Los clips no se congelan: si la escena dura más que la jugada, el clip se repite en bucle.
 - La voz es Andrés (ElevenLabs, eleven_v4) a 1,1×, y el guion tiene frases cortas.
 - Fuentes en una banda al final. Se cierra con una pregunta para comentar y la @DuplexDragon_.
 - Cada entrega incluye:

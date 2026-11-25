@@ -44,7 +44,9 @@ def mark(fn):
     return f
 def wrap_place(fn):
     def f(im, img, *a, **k):
-        lab = getattr(img, "_txt", None); ctx("T" if lab else "I", lab or "imagen")
+        lab = getattr(img, "_txt", None)
+        if getattr(img, "_clip", False): ctx("K", "clip de jugada")             # los clips cuentan completos (no solo la cara)
+        else: ctx("T" if lab else "I", lab or "imagen")
         try: return fn(im, img, *a, **k)
         finally: CTX.pop()
     return f
@@ -54,6 +56,14 @@ for n in ("nchip", "chipx", "text_layer"):
     if hasattr(R, n): setattr(R, n, mark(getattr(R, n)))
 for n in ("pop", "paste"):
     if hasattr(R, n): setattr(R, n, wrap_place(getattr(R, n)))
+if hasattr(R, "vcard"):
+    def _vc(fn):
+        def f(*a, **k):
+            r = fn(*a, **k)
+            if r: r[0]._clip = True
+            return r
+        return f
+    R.vcard = _vc(R.vcard)
 if hasattr(R, "c9orb"): R.c9orb = (lambda fn: lambda *a, **k: (ctx("I", "logo"), fn(*a, **k), CTX.pop())[1])(R.c9orb)
 
 def check(T):
