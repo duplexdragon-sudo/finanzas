@@ -53,7 +53,8 @@ Además, hay que mirar la hoja `--preview` de **todo** el video (unos 48 cuadros
 - **Todo se verifica en la web** (vlr.gg, Liquipedia, THESPIKE, Sheep Esports, la cuenta oficial del equipo). Si no es oficial, se dice **"según reportes"**. Nunca se inventa.
 - Si Carlos manda clips, **revisar que cada jugada sea del jugador correcto** antes de usarla.
 - **Cada clip tiene que mostrar exactamente lo que dice la voz en ese momento.** Antes de montar, se revisa cada clip segundo a segundo (hoja con tiempos) y se anota en qué segundo aparece cada habilidad o jugada; el clip arranca justo ahí.
-- Los clips no se congelan: si la escena dura más que la jugada, el clip se repite en bucle.
+- **El clip aparece desde que empieza la escena** (nunca un hueco vacío) y se sincroniza para que la habilidad caiga justo en la palabra (`synclip`). Si la escena dura más, se repite solo la ventana de la habilidad, sin mostrar otras cosas del clip.
+- Antes de entregar se revisa el video final cada medio segundo, escena por escena, para confirmar que lo que se ve coincide con lo que se dice.
 - La voz es Andrés (ElevenLabs, eleven_v4) a 1,1×, y el guion tiene frases cortas.
 - Fuentes en una banda al final. Se cierra con una pregunta para comentar y la @DuplexDragon_.
 - Cada entrega incluye:

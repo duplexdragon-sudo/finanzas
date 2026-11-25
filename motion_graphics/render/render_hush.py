@@ -118,6 +118,16 @@ def vcard(name, ss, crop, T, t0, size, grow=.008):
     return c.resize((int(c.width * s_), int(c.height * s_))), clamp01(pc * 2)
 # recortes del área de juego de cada clip (con arma y HUD)
 CR = {"tk1": (0, 400, 720, 880), "tk2": (0, 181, 576, 662), "tk3": (0, 340, 1080, 1228), "tk4": (0, 320, 576, 704), "tk5": (0, 373, 576, 331)}
+_SC = {}
+def synclip(im, name, ss, t_word, T, tcard, size, y, win=3.0):
+    pre = max(0.0, t_word - tcard); st = max(0.0, ss - pre); dur = (ss - st) + win; key = (name, st, dur, size)
+    if key not in _SC: _SC[key] = gclip(name, st, CR[name], 0, size, dur) and _GC[(name, st, CR[name], size)]
+    fr = _GC[(name, st, CR[name], size)]; n = len(fr); i = int(max(0, T - tcard) * 30); k0 = int((ss - st) * 30)
+    if i >= n: i = k0 + (i - k0) % max(1, n - k0)
+    pc = ease_back(prog(T, tcard, tcard + .3), 1.2)
+    if pc <= 0: return
+    c = L.rcard(Image.fromarray(fr[min(i, n - 1)]).convert("RGBA"), 28, WHITE); s_ = lerp(.85, 1, pc)
+    c = c.resize((int(c.width * s_), int(c.height * s_))); c._clip = True; paste(im, c, 360, y, clamp01(pc * 2))
 def keycap(k, sz=96):
     c = Image.new("RGBA", (sz, sz)); d = ImageDraw.Draw(c); d.rounded_rectangle((0, 0, sz - 1, sz - 1), 20, fill=WHITE + (255,), outline=PUR + (255,), width=5)
     t = k if k != "F" else "PASIVA"; f = ANTON(int(sz * (.55 if len(t) == 1 else .26))); d.text((sz / 2, sz / 2), t, font=f, fill=PUR, anchor="mm"); return shadow(c, 8, 8, .3)
@@ -173,33 +183,33 @@ def scene(name, T):
         return im
     if name == "L2":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "F", True)
-        clipin(im, "tk1", 30.4, T, wt(2, "agarra") - .4, (380, 434), 650)
+        synclip(im, "tk1", 31.0, wt(2, "agarra"), T, SEG[name] + .15, (380, 434), 690, 2.5)
         ks = [("ARMAS", "armas"), ("SPIKE", "spike"), ("INTERRUPTORES", "interruptores")]
         cur = [tx for tx, w in ks if T > wt(2, w) - .2]
         if cur: label(im, " · ".join(cur) + ("  DESDE LEJOS" if T > wt(2, "lejos") - .2 else ""), T, wt(2, "armas") - .2, True)
         return im
     if name == "L3":
         im = bg("w", "DASH"); stripes(im, T, SEG[name], PUR, .5); habhead(im, T, SEG[name] + .05, "C", False)
-        clipin(im, "tk2", 3.6, T, wt(3, "pones") - .2, (380, 436), 660)
+        synclip(im, "tk2", 4.0, wt(3, "pones"), T, SEG[name] + .15, (380, 436), 700, 5.0)
         tl = wt(3, "largo") - .3
         if T > tl: stamp(im, "EL DASH MÁS LARGO", 360, 1165, T, tl, PUR, -4, 64)
         return im
     if name == "L4":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "Q", True)
-        clipin(im, "tk3", 11.4, T, wt(4, "lanzas") - .3, (380, 434), 660)
+        synclip(im, "tk3", 24.0, wt(4, "flash"), T, SEG[name] + .15, (380, 434), 700, 4.0)
         tr = wt(4, "rediriges") - .2
         if T > tr: label(im, "REDIRÍGELO EN EL AIRE", T, tr, True)
         return im
     if name == "L5":
         im = bg("w", "PULL"); stripes(im, T, SEG[name], PUR, .5); habhead(im, T, SEG[name] + .05, "E", False)
-        clipin(im, "tk3", 36.0, T, wt(5, "atrae") - .6, (380, 434), 660)
+        synclip(im, "tk3", 37.0, wt(5, "atrae"), T, SEG[name] + .15, (380, 434), 700, 2.2)
         steps = [("ATRAE AL CENTRO", wt(5, "atrae")), ("PARED = ATURDIDO", wt(5, "pared")), ("SE RECARGA CADA 2 KILLS", wt(5, "recarga"))]
         cur = [(tx, t0) for tx, t0 in steps if T > t0 - .2]
         if cur: label(im, cur[-1][0], T, cur[-1][1] - .2, False)
         return im
     if name == "L6":
         im = pur(T, name); habhead(im, T, SEG[name] + .05, "X", True)
-        clipin(im, "tk5", 28.2, T, wt(6, "deja") - .6, (600, 344), 620)
+        synclip(im, "tk5", 29.5, wt(6, "deja"), T, SEG[name] + .15, (600, 344), 620, 2.0)
         tc = wt(6, "cuatro") - .2
         if T > wt(6, "guías") - .2 and T < tc: label(im, "LA GUÍAS CON LA MIRA", T, wt(6, "guías") - .2, True, 880)
         label(im, "TENZ · RANKED", T, tc, True, 880) if T > tc else None
@@ -208,7 +218,7 @@ def scene(name, T):
     if name == "L7":
         im = bg("w", "TRUCO"); stripes(im, T, SEG[name], PUR, .5)
         slam(im, "TRUCO 1", ANTON(130), 360, 160, T, SEG[name] + .05, PUR)
-        clipin(im, "tk5", 6.4, T, wt(7, "prepara") - .3, (600, 344), 560)
+        synclip(im, "tk5", 7.0, wt(7, "flash"), T, SEG[name] + .15, (600, 344), 560, 5.0)
         label(im, "TENZ · ENTRY", T, SEG[name] + .4, False, 790)
         tq = wt(7, "flash") - .2; tc = wt(7, "Áncora") - .2
         habfly(im, T, tq, "Q", 250, 920, 100, False)
@@ -217,7 +227,7 @@ def scene(name, T):
         return im
     if name == "L8":
         im = pur(T, name); slam(im, "TRUCO 2", ANTON(130), 360, 160, T, SEG[name] + .05, WHITE)
-        clipin(im, "tk3", 39.4, T, wt(8, "tira") - .2, (380, 434), 650)
+        synclip(im, "tk3", 40.0, wt(8, "Cinestesia"), T, SEG[name] + .15, (380, 434), 690, 2.5)
         tp = wt(8, "pared") - .2
         habfly(im, T, wt(8, "Cinestesia") - .2, "E", 590, 420, 92, True)
         if T > tp: label(im, "CINESTESIA + PARED = STUN", T, tp, True, 1140)
@@ -229,7 +239,7 @@ def scene(name, T):
             calflip(im, T, SEG[name] + .1, wt(9, "octubre") + .1, CAL_OCT, 600)
         else:
             slam(im, "Y YA HAY JUGADAS ASÍ", ANTON(84), 360, 150, T, ty, PUR)
-            clipin(im, "tk3", 2.0, T, ty, (380, 434), 640)
+            synclip(im, "tk3", 3.0, ty + .4, T, ty, (380, 434), 680, 3.5)
             stamp(im, "ACE", 360, 1160, T, ty + .25, PUR, -6, 100)
         return flash(im, T, (ty,))
     return cta(T)
