@@ -62,7 +62,7 @@ Además, hay que mirar la hoja `--preview` de **todo** el video (unos 48 cuadros
 - Cada entrega incluye:
   - el video final comprimido (`*_final.mp4`);
   - la portada para IG en 4K y en 4:5 (`portada_tpl.py`);
-  - la descripción para IG con hashtags.
+  - la descripción para IG, TikTok y Shorts según `docs/REDES_SOCIALES.md` (**máximo 5 hashtags**).
 
 ## 5b. Videos de League of Legends
 - **Cuando Carlos pida un video de LoL, siempre se pone la marca de agua XE** (`motion_graphics/marcas/marca_xe.png`) en **todo** el video, arriba a la derecha: blanca sobre morado y morada sobre blanco.
@@ -73,6 +73,17 @@ Además, hay que mirar la hoja `--preview` de **todo** el video (unos 48 cuadros
 - **Objetos recortados** (la copa, por ejemplo): silueta sólida y centrada; si la foto tiene un fondo difícil, se pide una con fondo liso.
 - Los nombres de equipos se dicen **en inglés**. En la voz se escriben fonéticamente ("Yen Yi", "Ti Uan", "Janwa Laif", "Di Plas Kía", "Bilibili Guéiming") y en pantalla van bien escritos.
 - En lugar del símbolo de rol va la **posición** (TOP/JG/MID/ADC/SUP).
+
+## 8. Redes sociales (Claude como social media manager de Carlos)
+- Toda descripción sigue `motion_graphics/docs/REDES_SOCIALES.md`. El orden es fijo:
+  1. gancho de una línea con palabra clave;
+  2. contexto;
+  3. lista de valor;
+  4. un solo llamado a la acción;
+  5. créditos;
+  6. hashtags.
+- **Máximo 5 hashtags**, siempre con **#DuplexDragon**, y nada de #fyp, #viral ni #parati.
+- Se entregan versiones para **Instagram, TikTok y YouTube Shorts**.
 
 ## 7. Guardar siempre
 - Carlos pidió que **cada regla o corrección nueva se guarde siempre**: se agrega a este archivo y se sube a GitHub (commit + push a la rama de trabajo), sin esperar a que lo pida otra vez.
