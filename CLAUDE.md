@@ -74,6 +74,12 @@ Además, hay que mirar la hoja `--preview` de **todo** el video (unos 48 cuadros
 - Los nombres de equipos se dicen **en inglés**. En la voz se escriben fonéticamente ("Yen Yi", "Ti Uan", "Janwa Laif", "Di Plas Kía", "Bilibili Guéiming") y en pantalla van bien escritos.
 - En lugar del símbolo de rol va la **posición** (TOP/JG/MID/ADC/SUP).
 
+## 5c. Videos de homenaje (personas reales que fallecieron)
+- Verificar todo con fuentes oficiales (Riot, wiki, medios). **No se menciona la causa de muerte** si no es pública, y no se especula.
+- Tono respetuoso: la primera parte puede ser alegre (el meme o el legado); desde el fallecimiento, el fondo va oscuro, la música baja y no hay golpes fuertes.
+- Si hay audio original de la persona, va al inicio con la etiqueta "AUDIO ORIGINAL".
+- Se da crédito al clip original y se cierra invitando a recordarla en los comentarios.
+
 ## 8. Redes sociales (Claude como social media manager de Carlos)
 - Toda descripción sigue `motion_graphics/docs/REDES_SOCIALES.md`. El orden es fijo:
   1. gancho de una línea con palabra clave;
